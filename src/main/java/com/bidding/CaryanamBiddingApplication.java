@@ -1,0 +1,30 @@
+package com.bidding;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class
+
+
+CaryanamBiddingApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(CaryanamBiddingApplication.class, args);
+
+        System.out.println("""
+              ====================================================
+               CARYANAM BIDDING  BACKEND STARTED
+              ====================================================
+
+             Application : CARYANAM BIDDING
+             Server      : http://localhost:8080
+             Swagger UI  : http://localhost:8080/swagger-ui/index.html
+             Swagger UI  : http://localhost:8080/swagger-ui/index.html
+
+             ====================================================
+             """);
+
+    }
+
+}
