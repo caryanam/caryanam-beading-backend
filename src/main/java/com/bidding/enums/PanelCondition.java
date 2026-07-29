@@ -1,9 +1,13 @@
 package com.bidding.enums;
 
 public enum PanelCondition {
+
     OK,
+    DAMAGED,
     REPAINTED,
     CHANGED,
-    DAMAGED,
+    SCRATCH,
+    DENT,
+    RUST,
     NA
 }

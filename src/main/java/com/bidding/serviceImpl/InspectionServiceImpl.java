@@ -5,11 +5,11 @@ import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
 import com.bidding.entity.*;
 import com.bidding.enums.InspectionStatus;
-import com.bidding.enums.PanelCondition;
+import com.bidding.enums.PhotoType;
+import com.bidding.enums.VideoType;
 import com.bidding.exception.ResourceNotFoundException;
 import com.bidding.repo.*;
 import com.bidding.service.InspectionService;
-import com.bidding.service.PdfGeneratorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +54,9 @@ public class InspectionServiceImpl implements InspectionService {
         Inspection inspection;
         Vehicle vehicle;
 
-        if (request.getInspectionId() != null) {
+        // Check if the inspectionId is non-null and greater than 0.
+        // This ensures that values of 0 or null are treated as requests for a new inspection draft.
+        if (request.getInspectionId() != null && request.getInspectionId() > 0) {
             inspection = inspectionRepository.findById(request.getInspectionId())
                     .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
 
@@ -459,42 +461,101 @@ public class InspectionServiceImpl implements InspectionService {
                                                            List<InspectionImage> images) {
         Vehicle v = ins.getVehicle();
         
-        String defaultVideoUrl = baseUrl + "/" + uploadDir + "/" + carVideoFolder + "/car.mp4";
-        List<InspectionDetailsResponse.VideoResponseDTO> videoList = Collections.singletonList(
-                InspectionDetailsResponse.VideoResponseDTO.builder()
+        // 1. Map Photos list, dynamically matching all PhotoType enum values
+        List<InspectionDetailsResponse.PhotoResponseDTO> photoList = new ArrayList<>();
+        for (PhotoType pt : PhotoType.values()) {
+            InspectionImage matchingImg = null;
+            for (InspectionImage img : images) {
+                String cat = img.getImageCategory();
+                if (cat != null) {
+                    if (cat.equalsIgnoreCase(pt.name())) {
+                        matchingImg = img;
+                        break;
+                    }
+                    // Support legacy categories like FRONT and BACK
+                    if (pt == PhotoType.FRONT_VIEW && cat.equalsIgnoreCase("FRONT")) {
+                        matchingImg = img;
+                        break;
+                    }
+                    if (pt == PhotoType.REAR_VIEW && cat.equalsIgnoreCase("BACK")) {
+                        matchingImg = img;
+                        break;
+                    }
+                }
+            }
+
+            if (matchingImg != null) {
+                String rawUrl = matchingImg.getImageUrl();
+                String finalUrl = rawUrl;
+                if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                    if (rawUrl.startsWith("/api/inspector/inspection/image/")) {
+                        String filename = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
+                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
+                    } else if (rawUrl.startsWith("uploads/")) {
+                        finalUrl = baseUrl + "/" + rawUrl;
+                    } else {
+                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + rawUrl;
+                    }
+                }
+                photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
+                        .id(matchingImg.getId())
+                        .photoType(pt.name())
+                        .displayName(pt.getDisplayName())
+                        .imageUrl(finalUrl)
+                        .captured(true)
+                        .build());
+            } else {
+                photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
+                        .id(null)
+                        .photoType(pt.name())
+                        .displayName(pt.getDisplayName())
+                        .imageUrl(null)
+                        .captured(false)
+                        .build());
+            }
+        }
+
+        // 2. Map Videos list, dynamically matching all VideoType enum values
+        List<InspectionDetailsResponse.VideoResponseDTO> videoList = new ArrayList<>();
+        for (VideoType vt : VideoType.values()) {
+            if (vt == VideoType.VEHICLE_WALKAROUND) {
+                // Return default/placeholder walkaround video URL
+                String defaultVideoUrl = baseUrl + "/" + uploadDir + "/" + carVideoFolder + "/car.mp4";
+                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
                         .id(1L)
+                        .videoType(vt.name())
+                        .displayName(vt.getDisplayName())
                         .videoUrl(defaultVideoUrl)
-                        .build()
-        );
+                        .captured(true)
+                        .build());
+            } else {
+                // Not captured
+                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                        .id(null)
+                        .videoType(vt.name())
+                        .displayName(vt.getDisplayName())
+                        .videoUrl(null)
+                        .captured(false)
+                        .build());
+            }
+        }
+
+        // 3. Map Ratings sub-DTO
+        InspectionDetailsResponse.RatingsResponseDTO ratingsDto = InspectionDetailsResponse.RatingsResponseDTO.builder()
+                .exterior(ins.getExteriorRating())
+                .mechanical(ins.getMechanicalRating())
+                .tyre(ins.getTyreRating())
+                .interior(ins.getInteriorRating())
+                .build();
 
         return InspectionDetailsResponse.builder()
                 .inspectionId(ins.getId())
-                .status(ins.getStatus())
                 .inspectionStatus(ins.getStatus() != null ? ins.getStatus().name() : null)
+                .status(ins.getStatus())
                 .rejectionReason(ins.getRejectionReason())
                 .submittedAt(ins.getSubmittedAt())
                 .inspectorId(ins.getInspector() != null ? ins.getInspector().getId() : null)
                 .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : null)
-                
-                // Flat vehicle fields
-                .vehicleNumber(v == null ? null : v.getVehicleNumber())
-                .ownerName(v == null ? null : v.getOwnerName())
-                .brand(v == null ? null : v.getBrand())
-                .model(v == null ? null : v.getModel())
-                .variant(v == null ? null : v.getVariant())
-                .manufacturingYear(v == null ? null : v.getManufacturingYear())
-                .fuelType(v == null ? null : v.getFuelType())
-                .transmission(v == null ? null : v.getTransmission())
-                .odometerReading(v == null ? null : v.getOdometerReading())
-                .insuranceStatus(v == null ? null : v.getInsuranceStatus())
-
-                .exteriorRating(ins.getExteriorRating())
-                .interiorRating(ins.getInteriorRating())
-                .engineRating(ins.getMechanicalRating())
-                .mechanicalRating(ins.getMechanicalRating())
-                .tyreRating(ins.getTyreRating())
-                .createdAt(ins.getCreatedAt())
-                .updatedAt(ins.getUpdatedAt())
 
                 .vehicleDetails(v == null ? null : InspectionDetailsResponse.VehicleResponseDTO.builder()
                         .id(v.getId())
@@ -590,26 +651,11 @@ public class InspectionServiceImpl implements InspectionService {
                         .sensors(interior.getSensors())
                         .remarks(interior.getRemarks())
                         .build())
-                .images(images.stream().map(img -> {
-                    String rawUrl = img.getImageUrl();
-                    String finalUrl = rawUrl;
-                    if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
-                        if (rawUrl.startsWith("/api/inspector/inspection/image/")) {
-                            String filename = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
-                            finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
-                        } else if (rawUrl.startsWith("uploads/")) {
-                            finalUrl = baseUrl + "/" + rawUrl;
-                        } else {
-                            finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + rawUrl;
-                        }
-                    }
-                    return InspectionDetailsResponse.ImageResponseDTO.builder()
-                            .id(img.getId())
-                            .category(img.getImageCategory())
-                            .imageUrl(finalUrl)
-                            .build();
-                }).collect(Collectors.toList()))
-                .videos(videoList)
+                .inspectionPhotos(photoList)
+                .inspectionVideos(videoList)
+                .ratings(ratingsDto)
+                .createdAt(ins.getCreatedAt())
+                .updatedAt(ins.getUpdatedAt())
                 .build();
     }
 

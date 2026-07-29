@@ -2,6 +2,7 @@ package com.bidding.dto.responce;
 
 import com.bidding.enums.InspectionStatus;
 import com.bidding.enums.PanelCondition;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -11,25 +12,11 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class InspectionDetailsResponse {
 
     private Long inspectionId;
-    
-    // Vehicle details flat fields
-    private String vehicleNumber;
-    private String ownerName;
-    private String brand;
-    private String model;
-    private String variant;
-    private Integer manufacturingYear;
-    private String fuelType;
-    private String transmission;
-    private Integer odometerReading;
-    private String insuranceStatus;
-    
-    // Status flat field
     private String inspectionStatus;
-
     private InspectionStatus status;
     private String rejectionReason;
     private LocalDateTime submittedAt;
@@ -41,15 +28,11 @@ public class InspectionDetailsResponse {
     private MechanicalResponseDTO mechanicalDetails;
     private TyreResponseDTO tyreDetails;
     private InteriorResponseDTO interiorDetails;
-    private List<ImageResponseDTO> images;
-    @Builder.Default
-    private List<VideoResponseDTO> videos = java.util.Collections.emptyList();
 
-    private Double exteriorRating;
-    private Double interiorRating;
-    private Double engineRating;
-    private Double mechanicalRating;
-    private Double tyreRating;
+    private List<PhotoResponseDTO> inspectionPhotos;
+    private List<VideoResponseDTO> inspectionVideos;
+
+    private RatingsResponseDTO ratings;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -118,27 +101,21 @@ public class InspectionDetailsResponse {
     @Builder
     public static class TyreResponseDTO {
         private Long id;
-        
         private String frontLeftBrand;
         private Integer frontLeftYear;
         private Integer frontLeftTread;
-
         private String frontRightBrand;
         private Integer frontRightYear;
         private Integer frontRightTread;
-
         private String rearLeftBrand;
         private Integer rearLeftYear;
         private Integer rearLeftTread;
-
         private String rearRightBrand;
         private Integer rearRightYear;
         private Integer rearRightTread;
-
         private String spareBrand;
         private Integer spareYear;
         private Integer spareTread;
-
         private Boolean hasJack;
         private Boolean hasHandle;
         private Boolean hasToolkit;
@@ -183,10 +160,12 @@ public class InspectionDetailsResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class ImageResponseDTO {
+    public static class PhotoResponseDTO {
         private Long id;
-        private String category;
+        private String photoType;
+        private String displayName;
         private String imageUrl;
+        private boolean captured;
     }
 
     @Data
@@ -195,6 +174,20 @@ public class InspectionDetailsResponse {
     @Builder
     public static class VideoResponseDTO {
         private Long id;
+        private String videoType;
+        private String displayName;
         private String videoUrl;
+        private boolean captured;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class RatingsResponseDTO {
+        private Double exterior;
+        private Double mechanical;
+        private Double tyre;
+        private Double interior;
     }
 }
