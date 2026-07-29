@@ -54,49 +54,40 @@ public class InspectionServiceImpl implements InspectionService {
         Inspection inspection;
         Vehicle vehicle;
 
-        // Check if the inspectionId is non-null and greater than 0.
-        // This ensures that values of 0 or null are treated as requests for a new inspection draft.
-        if (request.getInspectionId() != null && request.getInspectionId() > 0) {
-            inspection = inspectionRepository.findById(request.getInspectionId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+        // Check by vehicle number
+        String vehicleNumber = request.getVehicleDetails() != null ? 
+                request.getVehicleDetails().getVehicleNumber() : null;
 
+        if (vehicleNumber == null || vehicleNumber.trim().isEmpty()) {
+            throw new IllegalArgumentException("Vehicle number is required to save a draft.");
+        }
+
+        Optional<Inspection> existingInspection = inspectionRepository.findByVehicleVehicleNumber(vehicleNumber);
+        if (existingInspection.isPresent()) {
+            inspection = existingInspection.get();
             if (inspection.getStatus() != InspectionStatus.DRAFT && 
                 inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
-                throw new IllegalStateException("Inspection is locked and cannot be updated.");
+                throw new IllegalStateException("Inspection for this vehicle is locked.");
             }
             vehicle = inspection.getVehicle();
         } else {
-            // Check by vehicle number
-            String vehicleNumber = request.getVehicleDetails() != null ? 
-                    request.getVehicleDetails().getVehicleNumber() : null;
+            vehicle = Vehicle.builder()
+                    .vehicleNumber(vehicleNumber)
+                    .build();
+            vehicle = vehicleRepository.save(vehicle);
 
-            if (vehicleNumber == null || vehicleNumber.trim().isEmpty()) {
-                throw new IllegalArgumentException("Vehicle number is required to save a draft.");
-            }
-
-            Optional<Inspection> existingInspection = inspectionRepository.findByVehicleVehicleNumber(vehicleNumber);
-            if (existingInspection.isPresent()) {
-                inspection = existingInspection.get();
-                if (inspection.getStatus() != InspectionStatus.DRAFT && 
-                    inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
-                    throw new IllegalStateException("Inspection for this vehicle is locked.");
-                }
-                vehicle = inspection.getVehicle();
-            } else {
-                vehicle = Vehicle.builder()
-                        .vehicleNumber(vehicleNumber)
-                        .build();
-                vehicle = vehicleRepository.save(vehicle);
-
-                inspection = Inspection.builder()
-                        .vehicle(vehicle)
-                        .inspector(inspector)
-                        .status(InspectionStatus.DRAFT)
-                        .build();
-                inspection = inspectionRepository.save(inspection);
-            }
+            inspection = Inspection.builder()
+                    .vehicle(vehicle)
+                    .inspector(inspector)
+                    .status(InspectionStatus.DRAFT)
+                    .build();
+            inspection = inspectionRepository.save(inspection);
         }
 
+        return saveOrUpdateInspection(inspection, vehicle, request);
+    }
+
+    private InspectionDetailsResponse saveOrUpdateInspection(Inspection inspection, Vehicle vehicle, InspectionDraftRequest request) {
         // 1. Update Vehicle Specs
         if (request.getVehicleDetails() != null) {
             InspectionDraftRequest.VehicleDraftDTO vDto = request.getVehicleDetails();
@@ -111,6 +102,7 @@ public class InspectionServiceImpl implements InspectionService {
             if (vDto.getInsuranceStatus() != null) vehicle.setInsuranceStatus(vDto.getInsuranceStatus());
             if (vDto.getInspectorCode() != null) vehicle.setInspectorCode(vDto.getInspectorCode());
             if (vDto.getInspectionDate() != null) vehicle.setInspectionDate(vDto.getInspectionDate());
+            if (vDto.getSuggestedPrice() != null) vehicle.setSuggestedPrice(vDto.getSuggestedPrice());
             vehicleRepository.save(vehicle);
         }
 
@@ -166,7 +158,7 @@ public class InspectionServiceImpl implements InspectionService {
             mechanicalInspectionRepository.save(mechanical);
         }
 
-        // 4. Update Tyres
+        // 4. Update Tyre Details
         if (request.getTyreDetails() != null) {
             tyreInspectionRepository.deleteByInspectionId(inspection.getId());
             InspectionDraftRequest.TyreDraftDTO tDto = request.getTyreDetails();
@@ -572,6 +564,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .inspectorCode(v.getInspectorCode())
                         .inspectionDate(v.getInspectionDate())
                         .vehicleStatus(v.getVehicleStatus())
+                        .suggestedPrice(v.getSuggestedPrice())
                         .build())
                 .exteriorPanelDetails(panels.stream().map(p -> InspectionDetailsResponse.PanelResponseDTO.builder()
                         .id(p.getId())
@@ -662,8 +655,16 @@ public class InspectionServiceImpl implements InspectionService {
     @Override
     @Transactional
     public InspectionDetailsResponse updateInspection(Long id, InspectionDraftRequest request, Long inspectorId) {
-        request.setInspectionId(id);
-        return saveDraft(request, inspectorId);
+        Inspection inspection = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+
+        if (inspection.getStatus() != InspectionStatus.DRAFT && 
+            inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Inspection is locked and cannot be updated.");
+        }
+
+        Vehicle vehicle = inspection.getVehicle();
+        return saveOrUpdateInspection(inspection, vehicle, request);
     }
 
     @Override

@@ -12,8 +12,6 @@ import java.util.List;
 @Builder
 public class InspectionDraftRequest {
 
-    private Long inspectionId;
-    
     private VehicleDraftDTO vehicleDetails;
     private List<PanelDraftDTO> exteriorPanelDetails;
     private MechanicalDraftDTO mechanicalDetails;
@@ -42,6 +40,7 @@ public class InspectionDraftRequest {
         private String insuranceStatus;
         private String inspectorCode;
         private LocalDateTime inspectionDate;
+        private Double suggestedPrice;
     }
 
     @Data

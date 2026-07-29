@@ -56,6 +56,7 @@ public class InspectionDetailsResponse {
         private String inspectorCode;
         private LocalDateTime inspectionDate;
         private String vehicleStatus;
+        private Double suggestedPrice;
     }
 
     @Data

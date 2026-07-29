@@ -52,8 +52,8 @@ public class InspectorInspectionController {
     @org.springframework.beans.factory.annotation.Value("${app.car-video-folder}")
     private String carVideoFolder;
 
-    @PostMapping("/save-draft")
-    @Operation(summary = "Save or update inspection draft (Step 1-5)")
+    @PostMapping("")
+    @Operation(summary = "Create a new vehicle inspection draft (Step 1-5)")
     public ResponseEntity<ApiResponse<InspectionDetailsResponse>> saveDraft(
             @RequestBody InspectionDraftRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {

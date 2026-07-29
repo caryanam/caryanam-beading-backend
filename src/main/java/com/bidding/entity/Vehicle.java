@@ -50,4 +50,7 @@ public class Vehicle {
 
     @Column(name = "vehicle_status")
     private String vehicleStatus; // e.g. READY_FOR_AUCTION
+
+    @Column(name = "suggested_price")
+    private Double suggestedPrice;
 }
