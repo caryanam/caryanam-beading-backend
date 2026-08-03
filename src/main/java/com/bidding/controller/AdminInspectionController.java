@@ -4,7 +4,10 @@ import com.bidding.dto.request.AdminRejectRequest;
 import com.bidding.dto.responce.ApiResponse;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
+import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.service.InspectionService;
+import com.bidding.service.BiddingService;
+import com.bidding.dto.responce.BidResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -22,6 +24,7 @@ import java.util.List;
 public class AdminInspectionController {
 
     private final InspectionService inspectionService;
+    private final BiddingService biddingService;
 
     @GetMapping("/api/admin/inspections")
     @Operation(summary = "Get list of all submitted vehicle inspections")
@@ -72,4 +75,49 @@ public class AdminInspectionController {
                 .build());
     }
 
+    @GetMapping("/api/admin/dealers")
+    @Operation(summary = "Get list of all registered dealers")
+    public ResponseEntity<ApiResponse<List<DealerResponseDTO>>> getAllDealers() {
+        List<DealerResponseDTO> response = inspectionService.getAllDealers();
+        
+        return ResponseEntity.ok(ApiResponse.<List<DealerResponseDTO>>builder()
+                .success(true)
+                .message("Dealers retrieved successfully.")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/api/admin/dealers/import")
+    @Operation(summary = "Import dealers from Excel sheet")
+    public ResponseEntity<ApiResponse<Void>> importDealers(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        
+        inspectionService.importDealers(file);
+        
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Dealers imported successfully.")
+                .build());
+    }
+
+    @PutMapping("/api/admin/inspection/{id}/go-live")
+    @Operation(summary = "Start live auction for the vehicle")
+    public ResponseEntity<ApiResponse<Void>> goLive(@PathVariable Long id) {
+        inspectionService.goLive(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Auction is now live.")
+                .build());
+    }
+
+    @GetMapping("/api/admin/inspection/{id}/bids")
+    @Operation(summary = "Get bid history for a vehicle (Admin)")
+    public ResponseEntity<ApiResponse<List<BidResponseDTO>>> getBidHistory(@PathVariable Long id) {
+        List<BidResponseDTO> history = biddingService.getBidHistory(id);
+        return ResponseEntity.ok(ApiResponse.<List<BidResponseDTO>>builder()
+                .success(true)
+                .message("Bid history retrieved successfully.")
+                .data(history)
+                .build());
+    }
 }

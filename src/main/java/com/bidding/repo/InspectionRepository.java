@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface InspectionRepository extends JpaRepository<Inspection, Long> {
     Optional<Inspection> findByVehicleVehicleNumber(String vehicleNumber);
     Optional<Inspection> findByVehicleId(Long vehicleId);
+    java.util.List<Inspection> findByInspectorId(Long inspectorId);
 }

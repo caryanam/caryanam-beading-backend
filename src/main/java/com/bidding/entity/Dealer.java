@@ -42,4 +42,10 @@ public class Dealer {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private LocalDateTime updatedAt;
+
+    private String address;
+
+    private String area;
+
+    private String city;
 }

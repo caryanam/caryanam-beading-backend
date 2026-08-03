@@ -3,6 +3,8 @@ package com.bidding.service;
 import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
+import com.bidding.dto.responce.InspectorStatsResponse;
+import com.bidding.dto.responce.DealerResponseDTO;
 
 import java.util.List;
 
@@ -16,6 +18,8 @@ public interface InspectionService {
 
     List<InspectionSummaryResponse> getAllInspections();
 
+    List<InspectionSummaryResponse> getInspectionsByInspector(Long inspectorId);
+
     void approveInspection(Long id);
 
     void rejectInspection(Long id, String reason);
@@ -27,4 +31,12 @@ public interface InspectionService {
     InspectionDetailsResponse updateInspection(Long id, InspectionDraftRequest request, Long inspectorId);
 
     void deleteInspection(Long id);
+
+    InspectorStatsResponse getInspectorStats(Long inspectorId);
+
+    List<DealerResponseDTO> getAllDealers();
+
+    void goLive(Long id);
+
+    void importDealers(org.springframework.web.multipart.MultipartFile file);
 }

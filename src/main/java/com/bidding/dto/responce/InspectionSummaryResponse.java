@@ -20,4 +20,16 @@ public class InspectionSummaryResponse {
     private InspectionStatus status;
     private LocalDateTime submittedAt;
     private String inspectorName;
+    private Double suggestedPrice;
+    private String rejectionReason;
+    private String vehicleImage;
+    private Integer year;
+    private String fuel;
+    private String transmission;
+    private Integer odometer;
+    private String vehicleStatus;
+    private Double currentHighestBid;
+    private String currentHighestBidder;
+    private Long auctionEndTime;
+    private Integer totalBids;
 }

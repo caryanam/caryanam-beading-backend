@@ -4,10 +4,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class
-
-
-CaryanamBiddingApplication {
+@org.springframework.scheduling.annotation.EnableScheduling
+public class CaryanamBiddingApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(CaryanamBiddingApplication.class, args);

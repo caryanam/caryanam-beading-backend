@@ -27,4 +27,7 @@ public class InspectionPanel {
     @Enumerated(EnumType.STRING)
     @Column(name = "condition_value", nullable = false)
     private PanelCondition condition;
+
+    @Column(name = "image_url")
+    private String imageUrl;
 }

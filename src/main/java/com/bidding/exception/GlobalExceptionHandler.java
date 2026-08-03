@@ -93,6 +93,15 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleMaxUploadSizeExceededException(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("success", false);
+        response.put("message", "Maximum upload size exceeded. Please upload a smaller file.");
+        return new ResponseEntity<>(response, HttpStatus.PAYLOAD_TOO_LARGE);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleException(Exception ex) {
         Map<String, Object> response = new LinkedHashMap<>();

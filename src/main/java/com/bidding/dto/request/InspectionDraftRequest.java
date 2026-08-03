@@ -50,6 +50,7 @@ public class InspectionDraftRequest {
     public static class PanelDraftDTO {
         private String panelName;
         private PanelCondition condition;
+        private String imageUrl;
     }
 
     @Data

@@ -41,6 +41,9 @@ public class SecurityConfig {
 
                         // Public image serving
                         .requestMatchers(HttpMethod.GET, "/api/inspector/inspection/image/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/inspector/inspection/*/pdf").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/ws/auction/**", "/ws/auction").permitAll()
 
                         // Swagger documentation
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/webjars/**").permitAll()

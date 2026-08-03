@@ -33,6 +33,7 @@ public class InspectionDetailsResponse {
     private List<VideoResponseDTO> inspectionVideos;
 
     private RatingsResponseDTO ratings;
+    private List<BidResponseDTO> bidHistory;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -57,6 +58,10 @@ public class InspectionDetailsResponse {
         private LocalDateTime inspectionDate;
         private String vehicleStatus;
         private Double suggestedPrice;
+        private Double currentHighestBid;
+        private String currentHighestBidder;
+        private Long auctionEndTime;
+        private Integer totalBids;
     }
 
     @Data
@@ -67,6 +72,7 @@ public class InspectionDetailsResponse {
         private Long id;
         private String panelName;
         private PanelCondition condition;
+        private String imageUrl;
     }
 
     @Data

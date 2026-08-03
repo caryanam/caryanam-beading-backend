@@ -53,4 +53,17 @@ public class Vehicle {
 
     @Column(name = "suggested_price")
     private Double suggestedPrice;
+
+    @Column(name = "current_highest_bid")
+    private Double currentHighestBid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_highest_bidder_id")
+    private Dealer currentHighestBidder;
+
+    @Column(name = "auction_end_time")
+    private LocalDateTime auctionEndTime;
+
+    @Column(name = "total_bids")
+    private Integer totalBids;
 }

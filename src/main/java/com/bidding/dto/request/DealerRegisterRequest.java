@@ -36,4 +36,8 @@ public class DealerRegisterRequest {
 
     @NotBlank(message = "Confirm password is required")
     private String confirmPassword;
+
+    private String address;
+    private String area;
+    private String city;
 }

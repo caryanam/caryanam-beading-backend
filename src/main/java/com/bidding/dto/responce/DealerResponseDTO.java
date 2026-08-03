@@ -16,4 +16,7 @@ public class DealerResponseDTO {
     private String email;
     private String mobileNumber;
     private Role role;
+    private String address;
+    private String area;
+    private String city;
 }

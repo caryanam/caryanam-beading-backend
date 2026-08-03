@@ -98,6 +98,9 @@ public class AuthServiceImpl implements AuthService {
                 .mobileNumber(request.getMobile())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.DEALER)
+                .address(request.getAddress())
+                .area(request.getArea())
+                .city(request.getCity())
                 .build();
 
         Dealer saved = dealerRepository.save(dealer);
@@ -109,6 +112,9 @@ public class AuthServiceImpl implements AuthService {
                 .email(saved.getEmail())
                 .mobileNumber(saved.getMobileNumber())
                 .role(saved.getRole())
+                .address(saved.getAddress())
+                .area(saved.getArea())
+                .city(saved.getCity())
                 .build();
     }
 

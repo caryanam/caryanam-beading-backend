@@ -3,6 +3,8 @@ package com.bidding.controller;
 import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.ApiResponse;
 import com.bidding.dto.responce.InspectionDetailsResponse;
+import com.bidding.dto.responce.InspectionSummaryResponse;
+import com.bidding.dto.responce.InspectorStatsResponse;
 import com.bidding.entity.Inspector;
 import com.bidding.exception.ResourceNotFoundException;
 import com.bidding.repo.InspectorRepository;
@@ -29,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -51,6 +54,36 @@ public class InspectorInspectionController {
 
     @org.springframework.beans.factory.annotation.Value("${app.car-video-folder}")
     private String carVideoFolder;
+
+    @GetMapping("")
+    @Operation(summary = "Get list of all inspections for the logged-in inspector")
+    public ResponseEntity<ApiResponse<List<InspectionSummaryResponse>>> getMyInspections(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        Inspector inspector = getInspector(userDetails);
+        List<InspectionSummaryResponse> response = inspectionService.getInspectionsByInspector(inspector.getId());
+        
+        return ResponseEntity.ok(ApiResponse.<List<InspectionSummaryResponse>>builder()
+                .success(true)
+                .message("Inspections retrieved successfully.")
+                .data(response)
+                .build());
+    }
+
+    @GetMapping("/stats")
+    @Operation(summary = "Get inspection stats for the logged-in inspector")
+    public ResponseEntity<ApiResponse<InspectorStatsResponse>> getInspectorStats(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        Inspector inspector = getInspector(userDetails);
+        InspectorStatsResponse response = inspectionService.getInspectorStats(inspector.getId());
+        
+        return ResponseEntity.ok(ApiResponse.<InspectorStatsResponse>builder()
+                .success(true)
+                .message("Stats retrieved successfully.")
+                .data(response)
+                .build());
+    }
 
     @PostMapping("")
     @Operation(summary = "Create a new vehicle inspection draft (Step 1-5)")

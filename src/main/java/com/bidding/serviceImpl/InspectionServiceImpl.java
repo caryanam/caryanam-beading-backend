@@ -3,7 +3,11 @@ package com.bidding.serviceImpl;
 import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
+import com.bidding.dto.responce.InspectorStatsResponse;
+import com.bidding.dto.responce.BidResponseDTO;
+import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.entity.*;
+import com.bidding.config.AuctionWebSocketHandler;
 import com.bidding.enums.InspectionStatus;
 import com.bidding.enums.PhotoType;
 import com.bidding.enums.VideoType;
@@ -11,6 +15,7 @@ import com.bidding.exception.ResourceNotFoundException;
 import com.bidding.repo.*;
 import com.bidding.service.InspectionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +37,10 @@ public class InspectionServiceImpl implements InspectionService {
     private final InteriorInspectionRepository interiorInspectionRepository;
     private final InspectionRemarksRepository inspectionRemarksRepository;
     private final PdfGeneratorService pdfGeneratorService;
+    private final DealerRepository dealerRepository;
+    private final BidRepository bidRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuctionWebSocketHandler webSocketHandler;
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url}")
     private String baseUrl;
@@ -123,6 +132,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .inspection(inspection)
                             .panelName(pDto.getPanelName())
                             .condition(pDto.getCondition())
+                            .imageUrl(pDto.getImageUrl())
                             .build();
                     inspectionPanelRepository.save(panel);
                 }
@@ -264,16 +274,26 @@ public class InspectionServiceImpl implements InspectionService {
 
         // Validate specifications
         Vehicle vehicle = inspection.getVehicle();
-        if (vehicle == null || vehicle.getBrand() == null || vehicle.getModel() == null || 
-            vehicle.getVariant() == null || vehicle.getOdometerReading() == null) {
-            throw new IllegalArgumentException("Validation Failed: Vehicle specifications must be completed before final submit.");
+        if (vehicle == null) {
+            throw new IllegalArgumentException("Validation Failed: Vehicle specifications must be completed.");
         }
+        if (vehicle.getBrand() == null || vehicle.getBrand().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Vehicle Brand / Make is required.");
+        if (vehicle.getModel() == null || vehicle.getModel().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Vehicle Model is required.");
+        if (vehicle.getVariant() == null || vehicle.getVariant().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Vehicle Variant is required.");
+        if (vehicle.getOdometerReading() == null) throw new IllegalArgumentException("Validation Failed: Odometer Reading is required.");
+        if (vehicle.getOwnerName() == null || vehicle.getOwnerName().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Owner Profile Status is required.");
+        if (vehicle.getManufacturingYear() == null) throw new IllegalArgumentException("Validation Failed: Manufacturing Year is required.");
+        if (vehicle.getFuelType() == null || vehicle.getFuelType().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Fuel Type is required.");
+        if (vehicle.getTransmission() == null || vehicle.getTransmission().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Transmission is required.");
+        if (vehicle.getInsuranceStatus() == null || vehicle.getInsuranceStatus().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Insurance Validity is required.");
+        if (vehicle.getInspectorCode() == null || vehicle.getInspectorCode().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Inspector Code is required.");
+        if (vehicle.getSuggestedPrice() == null) throw new IllegalArgumentException("Validation Failed: Suggested price valuation is required.");
 
         // Validate Ratings
-        if (inspection.getExteriorRating() == null || inspection.getMechanicalRating() == null || 
-            inspection.getTyreRating() == null || inspection.getInteriorRating() == null) {
-            throw new IllegalArgumentException("Validation Failed: Ratings for all sections must be set.");
-        }
+        if (inspection.getExteriorRating() == null) throw new IllegalArgumentException("Validation Failed: Exterior Rating is required.");
+        if (inspection.getMechanicalRating() == null) throw new IllegalArgumentException("Validation Failed: Mechanical Rating is required.");
+        if (inspection.getTyreRating() == null) throw new IllegalArgumentException("Validation Failed: Tyre Rating is required.");
+        if (inspection.getInteriorRating() == null) throw new IllegalArgumentException("Validation Failed: Interior Rating is required.");
 
         // Validate 31 panels completed
         List<InspectionPanel> panels = inspectionPanelRepository.findByInspectionId(id);
@@ -285,30 +305,68 @@ public class InspectionServiceImpl implements InspectionService {
         MechanicalInspection mechanical = mechanicalInspectionRepository.findByInspectionId(id)
                 .orElseThrow(() -> new IllegalArgumentException("Validation Failed: Mechanical checklist must be completed."));
 
-        if (mechanical.getEngineStatus() == null || mechanical.getEngineOil() == null || 
-            mechanical.getBrakeWorking() == null || mechanical.getSuspension() == null) {
-            throw new IllegalArgumentException("Validation Failed: Mandatory mechanical check options are empty.");
-        }
+        if (mechanical.getEngineStatus() == null) throw new IllegalArgumentException("Validation Failed: Engine / Motor Status check is required.");
+        if (mechanical.getEngineOil() == null) throw new IllegalArgumentException("Validation Failed: Engine Oil check is required.");
+        if (mechanical.getBrakeOil() == null) throw new IllegalArgumentException("Validation Failed: Brakes Oil check is required.");
+        if (mechanical.getSteeringOil() == null) throw new IllegalArgumentException("Validation Failed: Steering Oil check is required.");
+        if (mechanical.getCoolant() == null) throw new IllegalArgumentException("Validation Failed: Coolant check is required.");
+        if (mechanical.getBrakeBooster() == null) throw new IllegalArgumentException("Validation Failed: Brakes Booster check is required.");
+        if (mechanical.getBrakeWorking() == null) throw new IllegalArgumentException("Validation Failed: Brakes Working check is required.");
+        if (mechanical.getApron() == null) throw new IllegalArgumentException("Validation Failed: Apron Condition check is required.");
+        if (mechanical.getChassis() == null) throw new IllegalArgumentException("Validation Failed: Chassis Alignment check is required.");
+        if (mechanical.getSuspension() == null) throw new IllegalArgumentException("Validation Failed: Suspension check is required.");
+        if (mechanical.getBush() == null) throw new IllegalArgumentException("Validation Failed: Suspension Bushing check is required.");
+        if (mechanical.getLeakage() == null) throw new IllegalArgumentException("Validation Failed: Oil Leakage check is required.");
+        if (mechanical.getTransmission() == null) throw new IllegalArgumentException("Validation Failed: Manual Transmission Fluid Level check is required.");
+        if (mechanical.getGearbox() == null) throw new IllegalArgumentException("Validation Failed: Steering Gearbox & Linkage check is required.");
+        if (mechanical.getDifferential() == null) throw new IllegalArgumentException("Validation Failed: Differential Fluid Level check is required.");
+        if (mechanical.getAxle() == null) throw new IllegalArgumentException("Validation Failed: Driveline / Axle check is required.");
+        if (mechanical.getEngineNoise() == null) throw new IllegalArgumentException("Validation Failed: Engine / Motor Noise check is required.");
+        if (mechanical.getSmoke() == null) throw new IllegalArgumentException("Validation Failed: Exhaust Smoke Color check is required.");
+        if (mechanical.getFluidLeakage() == null) throw new IllegalArgumentException("Validation Failed: Fluid Leakages check is required.");
 
         // Validate tyre checklist
         TyreInspection tyres = tyreInspectionRepository.findByInspectionId(id)
                 .orElseThrow(() -> new IllegalArgumentException("Validation Failed: Tyre specifications must be completed."));
 
-        if (tyres.getFrontLeftBrand() == null || tyres.getFrontLeftTread() == null ||
-            tyres.getFrontRightBrand() == null || tyres.getFrontRightTread() == null ||
-            tyres.getRearLeftBrand() == null || tyres.getRearLeftTread() == null ||
-            tyres.getRearRightBrand() == null || tyres.getRearRightTread() == null ||
-            tyres.getSpareBrand() == null || tyres.getSpareTread() == null) {
-            throw new IllegalArgumentException("Validation Failed: Tyre details for all positions are mandatory.");
-        }
+        if (tyres.getFrontLeftBrand() == null || tyres.getFrontLeftTread() == null) throw new IllegalArgumentException("Validation Failed: Front Left Tyre details are required.");
+        if (tyres.getFrontRightBrand() == null || tyres.getFrontRightTread() == null) throw new IllegalArgumentException("Validation Failed: Front Right Tyre details are required.");
+        if (tyres.getRearLeftBrand() == null || tyres.getRearLeftTread() == null) throw new IllegalArgumentException("Validation Failed: Rear Left Tyre details are required.");
+        if (tyres.getRearRightBrand() == null || tyres.getRearRightTread() == null) throw new IllegalArgumentException("Validation Failed: Rear Right Tyre details are required.");
+        if (tyres.getSpareBrand() == null || tyres.getSpareTread() == null) throw new IllegalArgumentException("Validation Failed: Spare Tyre details are required.");
+        if (tyres.getHasJack() == null) throw new IllegalArgumentException("Validation Failed: Mechanical Jack Present check is required.");
+        if (tyres.getHasHandle() == null) throw new IllegalArgumentException("Validation Failed: Wrench & Handle Present check is required.");
+        if (tyres.getHasToolkit() == null) throw new IllegalArgumentException("Validation Failed: Standard Tool Kit Present check is required.");
+        if (tyres.getHasTriangle() == null) throw new IllegalArgumentException("Validation Failed: Reflective Hazard Triangle check is required.");
+        if (tyres.getHasFirstAidBox() == null) throw new IllegalArgumentException("Validation Failed: First Aid Kit check is required.");
 
         // Validate interior checklist
         InteriorInspection interior = interiorInspectionRepository.findByInspectionId(id)
                 .orElseThrow(() -> new IllegalArgumentException("Validation Failed: Interior & Electronics checklist must be completed."));
 
-        if (interior.getBatteryBrand() == null || interior.getAcCooling() == null) {
-            throw new IllegalArgumentException("Validation Failed: Battery and AC details must be completed.");
-        }
+        if (interior.getBatteryBrand() == null || interior.getBatteryBrand().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Battery Company is required.");
+        if (interior.getBatterySerialNumber() == null || interior.getBatterySerialNumber().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Full Battery Number is required.");
+        if (interior.getAcCooling() == null || interior.getAcCooling().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: AC cooling performance description is required.");
+        if (interior.getRightTailLamp() == null) throw new IllegalArgumentException("Validation Failed: Right Side Tail Lamp check is required.");
+        if (interior.getLeftTailLamp() == null) throw new IllegalArgumentException("Validation Failed: Left Side Tail Lamp check is required.");
+        if (interior.getRightHeadLamp() == null) throw new IllegalArgumentException("Validation Failed: Right Side Head Light check is required.");
+        if (interior.getLeftHeadLamp() == null) throw new IllegalArgumentException("Validation Failed: Left Side Head Light check is required.");
+        if (interior.getIndicators() == null) throw new IllegalArgumentException("Validation Failed: Indicators check is required.");
+        if (interior.getBootFloor() == null) throw new IllegalArgumentException("Validation Failed: Boot Floor check is required.");
+        if (interior.getDashboard() == null) throw new IllegalArgumentException("Validation Failed: Dashboard check is required.");
+        if (interior.getFogLamps() == null) throw new IllegalArgumentException("Validation Failed: Fog Lamps check is required.");
+        if (interior.getPowerWindows() == null) throw new IllegalArgumentException("Validation Failed: Power Windows check is required.");
+        if (interior.getMusicSystem() == null) throw new IllegalArgumentException("Validation Failed: Music System check is required.");
+        if (interior.getSteeringMountedControls() == null) throw new IllegalArgumentException("Validation Failed: Steering Mounted Controls check is required.");
+        if (interior.getWiper() == null) throw new IllegalArgumentException("Validation Failed: Wiper check is required.");
+        if (interior.getRearDefogger() == null) throw new IllegalArgumentException("Validation Failed: Rear Defogger check is required.");
+        if (interior.getRearWasher() == null) throw new IllegalArgumentException("Validation Failed: Rear Washer check is required.");
+        if (interior.getInstrumentCluster() == null) throw new IllegalArgumentException("Validation Failed: Instrument Cluster check is required.");
+        if (interior.getInfotainment() == null) throw new IllegalArgumentException("Validation Failed: Infotainment check is required.");
+        if (interior.getCentralLock() == null) throw new IllegalArgumentException("Validation Failed: Central Lock check is required.");
+        if (interior.getPushButton() == null) throw new IllegalArgumentException("Validation Failed: Push Start Button check is required.");
+        if (interior.getSunroof() == null) throw new IllegalArgumentException("Validation Failed: Sunroof check is required.");
+        if (interior.getSensors() == null) throw new IllegalArgumentException("Validation Failed: Sensors check is required.");
 
         // Validate mandatory images uploaded
         List<InspectionImage> images = inspectionImageRepository.findByInspectionId(id);
@@ -339,8 +397,11 @@ public class InspectionServiceImpl implements InspectionService {
     @Transactional(readOnly = true)
     public List<InspectionSummaryResponse> getAllInspections() {
         return inspectionRepository.findAll().stream()
+                .filter(ins -> ins.getStatus() != InspectionStatus.DRAFT && ins.getStatus() != InspectionStatus.IN_PROGRESS)
                 .map(ins -> {
                     Vehicle v = ins.getVehicle();
+                    List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
+                    String imgUrl = (images != null && !images.isEmpty()) ? images.get(0).getImageUrl() : null;
                     return InspectionSummaryResponse.builder()
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
@@ -351,6 +412,49 @@ public class InspectionServiceImpl implements InspectionService {
                             .status(ins.getStatus())
                             .submittedAt(ins.getSubmittedAt())
                             .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : "N/A")
+                            .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .rejectionReason(ins.getRejectionReason())
+                            .vehicleImage(imgUrl)
+                            .year(v != null ? v.getManufacturingYear() : null)
+                            .fuel(v != null ? v.getFuelType() : "N/A")
+                            .transmission(v != null ? v.getTransmission() : "N/A")
+                            .odometer(v != null ? v.getOdometerReading() : null)
+                            .vehicleStatus(v != null ? v.getVehicleStatus() : null)
+                            .currentHighestBid(v != null ? v.getCurrentHighestBid() : null)
+                            .currentHighestBidder((v != null && v.getCurrentHighestBidder() != null) ? v.getCurrentHighestBidder().getDealershipName() : null)
+                            .auctionEndTime((v != null && v.getAuctionEndTime() != null) ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
+                            .totalBids(v != null ? v.getTotalBids() : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InspectionSummaryResponse> getInspectionsByInspector(Long inspectorId) {
+        return inspectionRepository.findByInspectorId(inspectorId).stream()
+                .map(ins -> {
+                    Vehicle v = ins.getVehicle();
+                    List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
+                    String imgUrl = (images != null && !images.isEmpty()) ? images.get(0).getImageUrl() : null;
+                    return InspectionSummaryResponse.builder()
+                            .inspectionId(ins.getId())
+                            .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
+                            .ownerName(v != null ? v.getOwnerName() : "N/A")
+                            .brand(v != null ? v.getBrand() : "N/A")
+                            .model(v != null ? v.getModel() : "N/A")
+                            .variant(v != null ? v.getVariant() : "N/A")
+                            .status(ins.getStatus())
+                            .submittedAt(ins.getSubmittedAt())
+                            .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : "N/A")
+                            .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .rejectionReason(ins.getRejectionReason())
+                            .vehicleImage(imgUrl)
+                            .year(v != null ? v.getManufacturingYear() : null)
+                            .fuel(v != null ? v.getFuelType() : "N/A")
+                            .transmission(v != null ? v.getTransmission() : "N/A")
+                            .odometer(v != null ? v.getOdometerReading() : null)
+                            .vehicleStatus(v != null ? v.getVehicleStatus() : null)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -445,6 +549,29 @@ public class InspectionServiceImpl implements InspectionService {
         }
     }
 
+    private boolean isCategoryMatch(String cat, PhotoType pt) {
+        if (cat == null) return false;
+        String cleanCat = cat.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        String cleanPt = pt.name().replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        
+        if (cleanCat.equals(cleanPt)) return true;
+        
+        if (pt == PhotoType.FRONT_VIEW && (cleanCat.equals("FRONT") || cleanCat.equals("FRONTVIEW"))) return true;
+        if (pt == PhotoType.REAR_VIEW && (cleanCat.equals("REAR") || cleanCat.equals("REARVIEW") || cleanCat.equals("BACK"))) return true;
+        if (pt == PhotoType.LEFT_FRONT_VIEW && (cleanCat.equals("LEFT") || cleanCat.equals("LEFTFRONT") || cleanCat.equals("LEFTFRONTVIEW"))) return true;
+        if (pt == PhotoType.RIGHT_FRONT_VIEW && (cleanCat.equals("RIGHT") || cleanCat.equals("RIGHTFRONT") || cleanCat.equals("RIGHTFRONTVIEW"))) return true;
+        if (pt == PhotoType.ROOF_VIEW && (cleanCat.equals("ROOF") || cleanCat.equals("ROOFVIEW"))) return true;
+        if (pt == PhotoType.ENGINE_IMAGE && (cleanCat.equals("ENGINE") || cleanCat.equals("ENGINEIMAGE"))) return true;
+        if (pt == PhotoType.BATTERY_IMAGE && (cleanCat.equals("BATTERY") || cleanCat.equals("BATTERYIMAGE"))) return true;
+        if (pt == PhotoType.ODOMETER_IMAGE && (cleanCat.equals("ODOMETER") || cleanCat.equals("ODOMETERIMAGE"))) return true;
+        if (pt == PhotoType.DASHBOARD_IMAGE && (cleanCat.equals("DASHBOARD") || cleanCat.equals("DASHBOARDIMAGE") || cleanCat.equals("INTERIOR"))) return true;
+        if (pt == PhotoType.AC_CONTROL_IMAGE && (cleanCat.equals("AC") || cleanCat.equals("ACCONTROL") || cleanCat.equals("ACCONTROLIMAGE"))) return true;
+        if (pt == PhotoType.INSTRUMENT_CLUSTER_IMAGE && (cleanCat.equals("CLUSTER") || cleanCat.equals("INSTRUMENTCLUSTER") || cleanCat.equals("INSTRUMENTCLUSTERIMAGE"))) return true;
+        if (pt == PhotoType.MUSIC_SYSTEM_IMAGE && (cleanCat.equals("MUSIC") || cleanCat.equals("MUSICSYSTEM") || cleanCat.equals("MUSICSYSTEMIMAGE"))) return true;
+        
+        return false;
+    }
+
     private InspectionDetailsResponse mapToDetailsResponse(Inspection ins, 
                                                            List<InspectionPanel> panels,
                                                            MechanicalInspection mechanical, 
@@ -458,21 +585,9 @@ public class InspectionServiceImpl implements InspectionService {
         for (PhotoType pt : PhotoType.values()) {
             InspectionImage matchingImg = null;
             for (InspectionImage img : images) {
-                String cat = img.getImageCategory();
-                if (cat != null) {
-                    if (cat.equalsIgnoreCase(pt.name())) {
-                        matchingImg = img;
-                        break;
-                    }
-                    // Support legacy categories like FRONT and BACK
-                    if (pt == PhotoType.FRONT_VIEW && cat.equalsIgnoreCase("FRONT")) {
-                        matchingImg = img;
-                        break;
-                    }
-                    if (pt == PhotoType.REAR_VIEW && cat.equalsIgnoreCase("BACK")) {
-                        matchingImg = img;
-                        break;
-                    }
+                if (isCategoryMatch(img.getImageCategory(), pt)) {
+                    matchingImg = img;
+                    break;
                 }
             }
 
@@ -540,6 +655,14 @@ public class InspectionServiceImpl implements InspectionService {
                 .interior(ins.getInteriorRating())
                 .build();
 
+        List<BidResponseDTO> bids = bidRepository.findByInspectionIdOrderByAmountDesc(ins.getId()).stream()
+                .map(b -> BidResponseDTO.builder()
+                        .dealer(b.getDealer().getDealershipName())
+                        .amount(b.getAmount())
+                        .time(formatTime(b.getCreatedAt()))
+                        .build())
+                .collect(Collectors.toList());
+
         return InspectionDetailsResponse.builder()
                 .inspectionId(ins.getId())
                 .inspectionStatus(ins.getStatus() != null ? ins.getStatus().name() : null)
@@ -565,11 +688,16 @@ public class InspectionServiceImpl implements InspectionService {
                         .inspectionDate(v.getInspectionDate())
                         .vehicleStatus(v.getVehicleStatus())
                         .suggestedPrice(v.getSuggestedPrice())
+                        .currentHighestBid(v.getCurrentHighestBid())
+                        .currentHighestBidder(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getDealershipName() : null)
+                        .auctionEndTime(v.getAuctionEndTime() != null ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
+                        .totalBids(v.getTotalBids())
                         .build())
                 .exteriorPanelDetails(panels.stream().map(p -> InspectionDetailsResponse.PanelResponseDTO.builder()
                         .id(p.getId())
                         .panelName(p.getPanelName())
                         .condition(p.getCondition())
+                        .imageUrl(p.getImageUrl())
                         .build()).collect(Collectors.toList()))
                 .mechanicalDetails(mechanical == null ? null : InspectionDetailsResponse.MechanicalResponseDTO.builder()
                         .id(mechanical.getId())
@@ -647,6 +775,7 @@ public class InspectionServiceImpl implements InspectionService {
                 .inspectionPhotos(photoList)
                 .inspectionVideos(videoList)
                 .ratings(ratingsDto)
+                .bidHistory(bids)
                 .createdAt(ins.getCreatedAt())
                 .updatedAt(ins.getUpdatedAt())
                 .build();
@@ -705,6 +834,187 @@ public class InspectionServiceImpl implements InspectionService {
         Vehicle vehicle = inspection.getVehicle();
         if (vehicle != null) {
             vehicleRepository.delete(vehicle);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InspectorStatsResponse getInspectorStats(Long inspectorId) {
+        List<Inspection> inspections = inspectionRepository.findByInspectorId(inspectorId);
+
+        long pendingUploads = inspections.stream()
+                .filter(ins -> ins.getStatus() == InspectionStatus.DRAFT || ins.getStatus() == InspectionStatus.IN_PROGRESS)
+                .count();
+
+        long completedReports = inspections.stream()
+                .filter(ins -> ins.getStatus() == InspectionStatus.SUBMITTED || ins.getStatus() == InspectionStatus.APPROVED || ins.getStatus() == InspectionStatus.REJECTED)
+                .count();
+
+        long vehiclesSubmitted = inspections.stream()
+                .filter(ins -> ins.getStatus() == InspectionStatus.SUBMITTED || ins.getStatus() == InspectionStatus.APPROVED || ins.getStatus() == InspectionStatus.REJECTED)
+                .count();
+
+        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        long todayInspections = inspections.stream()
+                .filter(ins -> {
+                    if (ins.getSubmittedAt() == null) {
+                        return ins.getStatus() == InspectionStatus.DRAFT || ins.getStatus() == InspectionStatus.IN_PROGRESS;
+                    }
+                    return ins.getSubmittedAt().isAfter(todayStart);
+                })
+                .count();
+
+        return InspectorStatsResponse.builder()
+                .todayInspections(todayInspections)
+                .pendingUploads(pendingUploads)
+                .completedReports(completedReports)
+                .vehiclesSubmitted(vehiclesSubmitted)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DealerResponseDTO> getAllDealers() {
+        return dealerRepository.findAll().stream()
+                .map(d -> DealerResponseDTO.builder()
+                        .id(d.getId())
+                        .dealershipName(d.getDealershipName())
+                        .ownerName(d.getOwnerName())
+                        .email(d.getEmail())
+                        .mobileNumber(d.getMobileNumber())
+                        .role(d.getRole())
+                        .address(d.getAddress())
+                        .area(d.getArea())
+                        .city(d.getCity())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void goLive(Long id) {
+        Inspection ins = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+
+        Vehicle v = ins.getVehicle();
+        if (v != null) {
+            v.setVehicleStatus("LIVE");
+            v.setCurrentHighestBid(v.getSuggestedPrice() != null ? v.getSuggestedPrice() : 0.0);
+            v.setCurrentHighestBidder(null);
+            v.setAuctionEndTime(LocalDateTime.now().plusMinutes(10));
+            v.setTotalBids(0);
+            v = vehicleRepository.save(v);
+
+            // Broadcast websocket message so dealers receive the go live event instantly
+            Map<String, Object> wsMessage = new HashMap<>();
+            wsMessage.put("type", "GO_LIVE");
+            wsMessage.put("inspectionId", id);
+            wsMessage.put("currentHighestBid", v.getCurrentHighestBid());
+            wsMessage.put("currentHighestBidder", null);
+            wsMessage.put("totalBids", v.getTotalBids());
+            wsMessage.put("auctionEndTime", v.getAuctionEndTime() != null 
+                    ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() 
+                    : null);
+            wsMessage.put("bidHistory", new ArrayList<>());
+
+            webSocketHandler.broadcast(id, wsMessage);
+        }
+    }
+
+    private String formatTime(LocalDateTime time) {
+        java.time.Duration duration = java.time.Duration.between(time, LocalDateTime.now());
+        long seconds = duration.getSeconds();
+        if (seconds < 60) {
+            return "Just now";
+        }
+        long minutes = duration.toMinutes();
+        if (minutes < 60) {
+            return minutes + " min ago";
+        }
+        long hours = duration.toHours();
+        if (hours < 24) {
+            return hours + " h ago";
+        }
+        return time.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm"));
+    }
+
+    @Override
+    @Transactional
+    public void importDealers(org.springframework.web.multipart.MultipartFile file) {
+        try (java.io.InputStream is = file.getInputStream();
+             org.apache.poi.ss.usermodel.Workbook workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(is)) {
+            
+            org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheetAt(0);
+            java.util.Iterator<org.apache.poi.ss.usermodel.Row> rows = sheet.iterator();
+            
+            // Skip header row
+            if (rows.hasNext()) {
+                rows.next();
+            }
+            
+            while (rows.hasNext()) {
+                org.apache.poi.ss.usermodel.Row row = rows.next();
+                
+                String ownerName = getCellValueAsString(row.getCell(0));
+                String dealershipName = getCellValueAsString(row.getCell(1));
+                String email = getCellValueAsString(row.getCell(2));
+                String mobile = getCellValueAsString(row.getCell(3));
+                String password = getCellValueAsString(row.getCell(4));
+                String address = getCellValueAsString(row.getCell(5));
+                String area = getCellValueAsString(row.getCell(6));
+                String city = getCellValueAsString(row.getCell(7));
+                
+                if (email == null || email.trim().isEmpty()) {
+                    continue;
+                }
+                
+                if (dealerRepository.existsByEmail(email)) {
+                    continue;
+                }
+                
+                if (mobile != null && !mobile.trim().isEmpty() && dealerRepository.existsByMobileNumber(mobile)) {
+                    continue;
+                }
+                
+                Dealer dealer = Dealer.builder()
+                        .ownerName(ownerName)
+                        .dealershipName(dealershipName)
+                        .email(email)
+                        .mobileNumber(mobile)
+                        .password(passwordEncoder.encode(password != null && !password.trim().isEmpty() ? password : "pass@123"))
+                        .role(com.bidding.enums.Role.DEALER)
+                        .address(address)
+                        .area(area)
+                        .city(city)
+                        .build();
+                        
+                dealerRepository.save(dealer);
+            }
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Excel file: " + e.getMessage(), e);
+        }
+    }
+
+    private String getCellValueAsString(org.apache.poi.ss.usermodel.Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                if (org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                }
+                java.text.DecimalFormat df = new java.text.DecimalFormat("#");
+                return df.format(cell.getNumericCellValue());
+            case BOOLEAN:
+                return Boolean.toString(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
         }
     }
 }
