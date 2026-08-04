@@ -79,6 +79,18 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Password and Confirm Password must match");
         }
 
+        if (request.getArea() == null || request.getArea().trim().length() < 3) {
+            throw new IllegalArgumentException("Area must be at least 3 characters long");
+        }
+
+        if (request.getCity() == null || request.getCity().trim().length() < 3) {
+            throw new IllegalArgumentException("City must be at least 3 characters long");
+        }
+
+        if (request.getAddress() == null || request.getAddress().trim().length() < 5) {
+            throw new IllegalArgumentException("Address must be at least 5 characters long");
+        }
+
         if (adminRepository.existsByEmail(request.getEmail()) || 
             inspectorRepository.existsByEmail(request.getEmail()) || 
             dealerRepository.existsByEmail(request.getEmail())) {

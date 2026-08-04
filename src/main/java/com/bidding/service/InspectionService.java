@@ -36,7 +36,13 @@ public interface InspectionService {
 
     List<DealerResponseDTO> getAllDealers();
 
+    DealerResponseDTO updateDealer(Long id, DealerResponseDTO dto);
+
+    void deleteDealer(Long id);
+
     void goLive(Long id);
+
+    void stopAuction(Long id);
 
     void importDealers(org.springframework.web.multipart.MultipartFile file);
 }

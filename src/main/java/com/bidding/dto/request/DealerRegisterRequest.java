@@ -37,7 +37,15 @@ public class DealerRegisterRequest {
     @NotBlank(message = "Confirm password is required")
     private String confirmPassword;
 
+    @NotBlank(message = "Address is required")
+    @Size(min = 5, max = 255, message = "Address must be at least 5 characters long")
     private String address;
+
+    @NotBlank(message = "Area is required")
+    @Size(min = 3, max = 100, message = "Area must be at least 3 characters long")
     private String area;
+
+    @NotBlank(message = "City is required")
+    @Size(min = 3, max = 100, message = "City must be at least 3 characters long")
     private String city;
 }

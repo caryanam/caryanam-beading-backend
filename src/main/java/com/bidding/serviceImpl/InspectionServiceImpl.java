@@ -39,6 +39,7 @@ public class InspectionServiceImpl implements InspectionService {
     private final PdfGeneratorService pdfGeneratorService;
     private final DealerRepository dealerRepository;
     private final BidRepository bidRepository;
+    private final WishlistRepository wishlistRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuctionWebSocketHandler webSocketHandler;
 
@@ -876,18 +877,128 @@ public class InspectionServiceImpl implements InspectionService {
     @Transactional(readOnly = true)
     public List<DealerResponseDTO> getAllDealers() {
         return dealerRepository.findAll().stream()
-                .map(d -> DealerResponseDTO.builder()
-                        .id(d.getId())
-                        .dealershipName(d.getDealershipName())
-                        .ownerName(d.getOwnerName())
-                        .email(d.getEmail())
-                        .mobileNumber(d.getMobileNumber())
-                        .role(d.getRole())
-                        .address(d.getAddress())
-                        .area(d.getArea())
-                        .city(d.getCity())
+                .map(d -> {
+                    List<com.bidding.dto.responce.DealerWonBidDTO> wonBids = getWonBidsForDealer(d.getId());
+                    return DealerResponseDTO.builder()
+                            .id(d.getId())
+                            .dealershipName(d.getDealershipName())
+                            .ownerName(d.getOwnerName())
+                            .email(d.getEmail())
+                            .mobileNumber(d.getMobileNumber())
+                            .role(d.getRole())
+                            .address(d.getAddress())
+                            .area(d.getArea())
+                            .city(d.getCity())
+                            .totalBids(bidRepository.countByDealerId(d.getId()))
+                            .wonBidsCount((long) wonBids.size())
+                            .wonBids(wonBids)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public DealerResponseDTO updateDealer(Long id, DealerResponseDTO dto) {
+        Dealer dealer = dealerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with id: " + id));
+
+        if (dto.getDealershipName() != null && !dto.getDealershipName().trim().isEmpty()) {
+            dealer.setDealershipName(dto.getDealershipName().trim());
+        }
+        if (dto.getOwnerName() != null && !dto.getOwnerName().trim().isEmpty()) {
+            dealer.setOwnerName(dto.getOwnerName().trim());
+        }
+        if (dto.getMobileNumber() != null && !dto.getMobileNumber().trim().isEmpty()) {
+            dealer.setMobileNumber(dto.getMobileNumber().trim());
+        }
+        if (dto.getCity() != null) dealer.setCity(dto.getCity().trim());
+        if (dto.getArea() != null) dealer.setArea(dto.getArea().trim());
+        if (dto.getAddress() != null) dealer.setAddress(dto.getAddress().trim());
+        dealer.setUpdatedAt(LocalDateTime.now());
+
+        Dealer saved = dealerRepository.save(dealer);
+        List<com.bidding.dto.responce.DealerWonBidDTO> wonBids = getWonBidsForDealer(saved.getId());
+
+        return DealerResponseDTO.builder()
+                .id(saved.getId())
+                .dealershipName(saved.getDealershipName())
+                .ownerName(saved.getOwnerName())
+                .email(saved.getEmail())
+                .mobileNumber(saved.getMobileNumber())
+                .role(saved.getRole())
+                .address(saved.getAddress())
+                .area(saved.getArea())
+                .city(saved.getCity())
+                .totalBids(bidRepository.countByDealerId(saved.getId()))
+                .wonBidsCount((long) wonBids.size())
+                .wonBids(wonBids)
+                .build();
+    }
+
+    private List<com.bidding.dto.responce.DealerWonBidDTO> getWonBidsForDealer(Long dealerId) {
+        LocalDateTime now = LocalDateTime.now();
+        return vehicleRepository.findAll().stream()
+                .filter(v -> {
+                    if (v.getCurrentHighestBidder() == null || !v.getCurrentHighestBidder().getId().equals(dealerId)) {
+                        return false;
+                    }
+                    String status = v.getVehicleStatus();
+                    if (status == null) {
+                        return false;
+                    }
+                    // Exclude active/live auctions that have not ended yet
+                    if ("LIVE".equalsIgnoreCase(status) && (v.getAuctionEndTime() == null || now.isBefore(v.getAuctionEndTime()))) {
+                        return false;
+                    }
+                    if ("READY_FOR_AUCTION".equalsIgnoreCase(status) || "UPCOMING".equalsIgnoreCase(status) || "PENDING".equalsIgnoreCase(status)) {
+                        return false;
+                    }
+                    return true;
+                })
+                .map(v -> com.bidding.dto.responce.DealerWonBidDTO.builder()
+                        .vehicleId(v.getId())
+                        .vehicleNumber(v.getVehicleNumber())
+                        .brand(v.getBrand())
+                        .model(v.getModel())
+                        .variant(v.getVariant())
+                        .winningBidAmount(v.getCurrentHighestBid())
+                        .status(v.getVehicleStatus())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteDealer(Long id) {
+        Dealer dealer = dealerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with id: " + id));
+
+        // 1. Unlink vehicles where this dealer is set as current highest bidder
+        List<Vehicle> vehiclesWithDealer = vehicleRepository.findAll().stream()
+                .filter(v -> v.getCurrentHighestBidder() != null && v.getCurrentHighestBidder().getId().equals(id))
+                .collect(Collectors.toList());
+        for (Vehicle v : vehiclesWithDealer) {
+            v.setCurrentHighestBidder(null);
+            vehicleRepository.save(v);
+        }
+
+        // 2. Remove bids placed by this dealer to prevent foreign key errors
+        List<Bid> dealerBids = bidRepository.findAll().stream()
+                .filter(b -> b.getDealer() != null && b.getDealer().getId().equals(id))
+                .collect(Collectors.toList());
+        if (!dealerBids.isEmpty()) {
+            bidRepository.deleteAll(dealerBids);
+        }
+
+        // 3. Remove wishlist items saved by this dealer
+        List<Wishlist> dealerWishlist = wishlistRepository.findByDealerId(id);
+        if (dealerWishlist != null && !dealerWishlist.isEmpty()) {
+            wishlistRepository.deleteAll(dealerWishlist);
+        }
+
+        // 4. Delete dealer record
+        dealerRepository.delete(dealer);
     }
 
     @Override
@@ -916,6 +1027,30 @@ public class InspectionServiceImpl implements InspectionService {
                     ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() 
                     : null);
             wsMessage.put("bidHistory", new ArrayList<>());
+
+            webSocketHandler.broadcast(id, wsMessage);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void stopAuction(Long id) {
+        Inspection ins = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+
+        Vehicle v = ins.getVehicle();
+        if (v != null) {
+            v.setVehicleStatus("SOLD OUT");
+            v.setAuctionEndTime(LocalDateTime.now());
+            v = vehicleRepository.save(v);
+
+            // Broadcast websocket message so admin and dealers receive auction ended event
+            Map<String, Object> wsMessage = new HashMap<>();
+            wsMessage.put("type", "AUCTION_ENDED");
+            wsMessage.put("inspectionId", id);
+            wsMessage.put("winningBid", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0);
+            wsMessage.put("winner", v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getDealershipName() : "No winner");
+            wsMessage.put("totalBids", v.getTotalBids() != null ? v.getTotalBids() : 0);
 
             webSocketHandler.broadcast(id, wsMessage);
         }

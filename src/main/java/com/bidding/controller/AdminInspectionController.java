@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -87,6 +88,29 @@ public class AdminInspectionController {
                 .build());
     }
 
+    @PutMapping("/api/admin/dealer/{id}")
+    @Operation(summary = "Update dealer details (Admin)")
+    public ResponseEntity<ApiResponse<DealerResponseDTO>> updateDealer(
+            @PathVariable Long id,
+            @RequestBody DealerResponseDTO request) {
+        DealerResponseDTO response = inspectionService.updateDealer(id, request);
+        return ResponseEntity.ok(ApiResponse.<DealerResponseDTO>builder()
+                .success(true)
+                .message("Dealer updated successfully.")
+                .data(response)
+                .build());
+    }
+
+    @DeleteMapping("/api/admin/dealer/{id}")
+    @Operation(summary = "Delete dealer (Admin)")
+    public ResponseEntity<ApiResponse<Void>> deleteDealer(@PathVariable Long id) {
+        inspectionService.deleteDealer(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Dealer deleted successfully.")
+                .build());
+    }
+
     @PostMapping("/api/admin/dealers/import")
     @Operation(summary = "Import dealers from Excel sheet")
     public ResponseEntity<ApiResponse<Void>> importDealers(
@@ -107,6 +131,16 @@ public class AdminInspectionController {
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .success(true)
                 .message("Auction is now live.")
+                .build());
+    }
+
+    @PutMapping({"/api/admin/inspection/{id}/stop-auction", "/api/admin/inspection/{id}/stop"})
+    @Operation(summary = "Manually stop/end live auction for the vehicle")
+    public ResponseEntity<ApiResponse<Void>> stopAuction(@PathVariable Long id) {
+        inspectionService.stopAuction(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Auction has been stopped.")
                 .build());
     }
 

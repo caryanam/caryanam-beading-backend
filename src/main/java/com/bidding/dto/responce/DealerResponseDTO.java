@@ -2,6 +2,7 @@ package com.bidding.dto.responce;
 
 import com.bidding.enums.Role;
 import lombok.*;
+import java.util.List;
 
 @Getter
 @Setter
@@ -19,4 +20,7 @@ public class DealerResponseDTO {
     private String address;
     private String area;
     private String city;
+    private Long totalBids;
+    private Long wonBidsCount;
+    private List<DealerWonBidDTO> wonBids;
 }
