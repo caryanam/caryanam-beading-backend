@@ -5,6 +5,7 @@ import com.bidding.dto.responce.ApiResponse;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
 import com.bidding.dto.responce.DealerResponseDTO;
+import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.service.InspectionService;
 import com.bidding.service.BiddingService;
 import com.bidding.dto.responce.BidResponseDTO;
@@ -73,6 +74,28 @@ public class AdminInspectionController {
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .success(true)
                 .message("Inspection rejected successfully.")
+                .build());
+    }
+
+    @GetMapping("/api/admin/inspectors")
+    @Operation(summary = "Get list of all registered inspectors")
+    public ResponseEntity<ApiResponse<List<InspectorResponseDTO>>> getAllInspectors() {
+        List<InspectorResponseDTO> response = inspectionService.getAllInspectors();
+        
+        return ResponseEntity.ok(ApiResponse.<List<InspectorResponseDTO>>builder()
+                .success(true)
+                .message("Inspectors retrieved successfully.")
+                .data(response)
+                .build());
+    }
+
+    @DeleteMapping("/api/admin/inspector/{id}")
+    @Operation(summary = "Delete inspector (Admin)")
+    public ResponseEntity<ApiResponse<Void>> deleteInspector(@PathVariable Long id) {
+        inspectionService.deleteInspector(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Inspector deleted successfully.")
                 .build());
     }
 
@@ -153,5 +176,16 @@ public class AdminInspectionController {
                 .message("Bid history retrieved successfully.")
                 .data(history)
                 .build());
+    }
+
+    @GetMapping("/api/admin/inspection/{id}/pdf")
+    @Operation(summary = "Download vehicle inspection report PDF (Admin)")
+    public ResponseEntity<byte[]> downloadPdfAdmin(@PathVariable Long id) {
+        byte[] pdfBytes = inspectionService.generatePdfReport(id);
+        
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"inspection_report_" + id + ".pdf\"")
+                .body(pdfBytes);
     }
 }

@@ -15,4 +15,5 @@ public class InspectorResponseDTO {
     private String email;
     private String mobileNumber;
     private Role role;
+    private Integer uploads;
 }

@@ -90,11 +90,13 @@ public class PdfGeneratorService {
                 addStyledTableCell(vehTable, "Owner Name", v.getOwnerName(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(vehTable, "Brand & Model", v.getBrand() + " " + v.getModel(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(vehTable, "Variant", v.getVariant(), labelFont, valueFont, lightBg, borderGray);
-                addStyledTableCell(vehTable, "Manufacturing Year", String.valueOf(v.getManufacturingYear()), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(vehTable, "Manufacturing Year", v.getManufacturingYear() != null ? String.valueOf(v.getManufacturingYear()) : "N/A", labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(vehTable, "Fuel Type", v.getFuelType(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(vehTable, "Transmission", v.getTransmission(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(vehTable, "Odometer Reading", v.getOdometerReading() != null ? v.getOdometerReading() + " km" : "N/A", labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(vehTable, "Insurance Status", v.getInsuranceStatus(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(vehTable, "Inspector Code", v.getInspectorCode(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(vehTable, "Suggested Price", v.getSuggestedPrice() != null ? "₹" + v.getSuggestedPrice() : "N/A", labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(vehTable, "Inspection Date", v.getInspectionDate() != null ? v.getInspectionDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : "N/A", labelFont, valueFont, lightBg, borderGray);
             } else {
                 PdfPCell cell = new PdfPCell(new Phrase("No specifications captured.", valueFont));
@@ -114,7 +116,16 @@ public class PdfGeneratorService {
             if (panels != null && !panels.isEmpty()) {
                 for (int i = 0; i < panels.size(); i++) {
                     InspectionPanel p = panels.get(i);
-                    addPanelCell(panelTable, p.getPanelName(), p.getCondition().name(), p.getImageUrl(), labelFont, valueFont, borderGray);
+                    String panelImgUrl = p.getImageUrl();
+                    if ((panelImgUrl == null || panelImgUrl.trim().isEmpty()) && images != null) {
+                        for (InspectionImage img : images) {
+                            if (img.getImageCategory() != null && isDiagnosticPhotoMatch(img.getImageCategory(), p.getPanelName())) {
+                                panelImgUrl = img.getImageUrl();
+                                break;
+                            }
+                        }
+                    }
+                    addPanelCell(panelTable, p.getPanelName(), p.getCondition() != null ? p.getCondition().name() : "N/A", panelImgUrl, labelFont, valueFont, borderGray);
                 }
                 // complete empty cells if odd
                 if (panels.size() % 2 != 0) {
@@ -144,9 +155,18 @@ public class PdfGeneratorService {
                 addStyledTableCell(mechTable, "Coolant", mechanical.getCoolant(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(mechTable, "Brake Booster", mechanical.getBrakeBooster(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(mechTable, "Brake Working", mechanical.getBrakeWorking(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Apron", mechanical.getApron(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Chassis", mechanical.getChassis(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(mechTable, "Suspension", mechanical.getSuspension(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Bush", mechanical.getBush(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Leakage", mechanical.getLeakage(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Transmission", mechanical.getTransmission(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Gearbox", mechanical.getGearbox(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Differential", mechanical.getDifferential(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Axle", mechanical.getAxle(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Engine Noise", mechanical.getEngineNoise(), labelFont, valueFont, lightBg, borderGray);
+                addStyledTableCell(mechTable, "Smoke", mechanical.getSmoke(), labelFont, valueFont, lightBg, borderGray);
                 addStyledTableCell(mechTable, "Fluid Leakage", mechanical.getFluidLeakage(), labelFont, valueFont, lightBg, borderGray);
-                addStyledTableCell(mechTable, "Engine Noise / Smoke", mechanical.getEngineNoise() + " / " + mechanical.getSmoke(), labelFont, valueFont, lightBg, borderGray);
             } else {
                 PdfPCell cell = new PdfPCell(new Phrase("No mechanical parameters captured.", valueFont));
                 cell.setColspan(2);
@@ -188,7 +208,7 @@ public class PdfGeneratorService {
                 document.add(emergencyText);
             }
 
-            // 7. Interior & Electronics            // 7. Interior & Electronics
+            // 7. Interior & Electronics
             addSectionHeading(document, "5. INTERIOR AND CABINET DIAGNOSTICS", sectionFont, lightBg, primaryColor);
             PdfPTable intTable = new PdfPTable(3);
             intTable.setWidthPercentage(100);
@@ -309,24 +329,13 @@ public class PdfGeneratorService {
                 imgCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
                 if (matchedImage != null && matchedImage.getImageUrl() != null) {
-                    String url = matchedImage.getImageUrl();
-                    String filename = url.substring(url.lastIndexOf("/") + 1);
-                    java.nio.file.Path imagePath = java.nio.file.Paths.get("uploads/car/images/").resolve(filename);
-                    if (java.nio.file.Files.exists(imagePath)) {
-                        try {
-                            Image pdfImg = Image.getInstance(imagePath.toString());
-                            pdfImg.scaleToFit(80, 60);
-                            pdfImg.setAlignment(Element.ALIGN_CENTER);
-                            imgCell.addElement(pdfImg);
-                        } catch (Exception e) {
-                            Paragraph noPhoto = new Paragraph("Image Error", valueFont);
-                            noPhoto.setAlignment(Element.ALIGN_CENTER);
-                            imgCell.addElement(noPhoto);
-                        }
+                    Image pdfImg = createPdfImage(matchedImage.getImageUrl(), 80, 60);
+                    if (pdfImg != null) {
+                        imgCell.addElement(pdfImg);
                     } else {
-                        Paragraph noFile = new Paragraph("File Missing", valueFont);
-                        noFile.setAlignment(Element.ALIGN_CENTER);
-                        imgCell.addElement(noFile);
+                        Paragraph noPhoto = new Paragraph("Image Error", valueFont);
+                        noPhoto.setAlignment(Element.ALIGN_CENTER);
+                        imgCell.addElement(noPhoto);
                     }
                 } else {
                     Paragraph pendingPara = new Paragraph("-", valueFont);
@@ -341,7 +350,7 @@ public class PdfGeneratorService {
             byte[] qrBytes = generateQrCodeImage("Inspection ID: " + inspection.getId() + 
                     "\nVehicle: " + (v != null ? v.getVehicleNumber() : "N/A") + 
                     "\nStatus: " + inspection.getStatus().name() + 
-                    "\nDate: " + inspection.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+                    "\nDate: " + (inspection.getCreatedAt() != null ? inspection.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : "N/A"));
             if (qrBytes != null) {
                 Image qrImage = Image.getInstance(qrBytes);
                 qrImage.setAlignment(Element.ALIGN_CENTER);
@@ -401,15 +410,16 @@ public class PdfGeneratorService {
         table.addCell(labelCell);
 
         Font statusFont = valFont;
-        if ("OK".equalsIgnoreCase(status)) {
-            statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(16, 185, 129));
-        } else if ("REPAINTED".equalsIgnoreCase(status) || "CHANGED".equalsIgnoreCase(status)) {
-            statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(255, 140, 0));
-        } else if ("DAMAGED".equalsIgnoreCase(status)) {
-            statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(239, 68, 68));
+        String cleanStatus = status != null ? status.toUpperCase().trim() : "N/A";
+        if ("OK".equals(cleanStatus) || "NO DAMAGES".equals(cleanStatus)) {
+            statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(16, 185, 129)); // Green
+        } else if ("REPAINTED".equals(cleanStatus) || "CHANGED".equals(cleanStatus) || "SCRATCH".equals(cleanStatus) || "DENT".equals(cleanStatus)) {
+            statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(245, 158, 11)); // Amber / Orange
+        } else if ("DAMAGED".equals(cleanStatus) || "RUST".equals(cleanStatus)) {
+            statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(239, 68, 68)); // Red
         }
 
-        PdfPCell valCell = new PdfPCell(new Phrase(status, statusFont));
+        PdfPCell valCell = new PdfPCell(new Phrase(status != null ? status : "N/A", statusFont));
         valCell.setPadding(4);
         valCell.setBorderColor(border);
         valCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
@@ -422,19 +432,9 @@ public class PdfGeneratorService {
         imgCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
         if (imageUrl != null && !imageUrl.isEmpty()) {
-            String filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
-            java.nio.file.Path imagePath = java.nio.file.Paths.get("uploads/car/images/").resolve(filename);
-            if (java.nio.file.Files.exists(imagePath)) {
-                try {
-                    Image pdfImg = Image.getInstance(imagePath.toString());
-                    pdfImg.scaleToFit(65, 45);
-                    pdfImg.setAlignment(Element.ALIGN_CENTER);
-                    imgCell.addElement(pdfImg);
-                } catch (Exception e) {
-                    Paragraph noPhoto = new Paragraph("-", valFont);
-                    noPhoto.setAlignment(Element.ALIGN_CENTER);
-                    imgCell.addElement(noPhoto);
-                }
+            Image pdfImg = createPdfImage(imageUrl, 65, 45);
+            if (pdfImg != null) {
+                imgCell.addElement(pdfImg);
             } else {
                 Paragraph noPhoto = new Paragraph("-", valFont);
                 noPhoto.setAlignment(Element.ALIGN_CENTER);
@@ -477,6 +477,67 @@ public class PdfGeneratorService {
         return Boolean.TRUE.equals(value) ? "YES" : "NO";
     }
 
+    private Image createPdfImage(String imageUrl, float fitWidth, float fitHeight) {
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            // 1. Base64 Data URL support
+            if (imageUrl.startsWith("data:image")) {
+                int commaIdx = imageUrl.indexOf(",");
+                if (commaIdx != -1) {
+                    String base64Data = imageUrl.substring(commaIdx + 1);
+                    byte[] imgBytes = java.util.Base64.getDecoder().decode(base64Data);
+                    Image pdfImg = Image.getInstance(imgBytes);
+                    pdfImg.scaleToFit(fitWidth, fitHeight);
+                    pdfImg.setAlignment(Element.ALIGN_CENTER);
+                    return pdfImg;
+                }
+            }
+
+            // 2. Extract filename from URL or path
+            String filename = imageUrl.contains("/") ? imageUrl.substring(imageUrl.lastIndexOf("/") + 1) : imageUrl;
+            if (filename.contains("?")) {
+                filename = filename.substring(0, filename.indexOf("?"));
+            }
+
+            // 3. Search local filesystem locations (relative & absolute)
+            String userDir = System.getProperty("user.dir");
+            java.nio.file.Path[] possiblePaths = new java.nio.file.Path[]{
+                java.nio.file.Paths.get("uploads/car/images/").resolve(filename),
+                java.nio.file.Paths.get(userDir, "uploads/car/images/").resolve(filename),
+                java.nio.file.Paths.get("uploads/").resolve(filename),
+                java.nio.file.Paths.get(userDir, "uploads/").resolve(filename),
+                java.nio.file.Paths.get(filename),
+                java.nio.file.Paths.get(userDir).resolve(filename)
+            };
+
+            for (java.nio.file.Path path : possiblePaths) {
+                if (java.nio.file.Files.exists(path) && !java.nio.file.Files.isDirectory(path)) {
+                    Image pdfImg = Image.getInstance(path.toAbsolutePath().toString());
+                    pdfImg.scaleToFit(fitWidth, fitHeight);
+                    pdfImg.setAlignment(Element.ALIGN_CENTER);
+                    return pdfImg;
+                }
+            }
+
+            // 4. Remote HTTP / HTTPS URL fallback
+            if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+                try {
+                    Image pdfImg = Image.getInstance(imageUrl);
+                    pdfImg.scaleToFit(fitWidth, fitHeight);
+                    pdfImg.setAlignment(Element.ALIGN_CENTER);
+                    return pdfImg;
+                } catch (Exception httpEx) {
+                    System.err.println("HTTP image fetch failed for: " + imageUrl + " -> " + httpEx.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to load PDF image for URL: " + imageUrl + " -> " + e.getMessage());
+        }
+        return null;
+    }
+
     private byte[] generateQrCodeImage(String text) {
         try {
             com.google.zxing.qrcode.QRCodeWriter qrCodeWriter = new com.google.zxing.qrcode.QRCodeWriter();
@@ -490,25 +551,93 @@ public class PdfGeneratorService {
     }
 
     private boolean isCategoryMatch(String cat, PhotoType pt) {
-        if (cat == null) return false;
+        if (cat == null || pt == null) return false;
         String cleanCat = cat.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
         String cleanPt = pt.name().replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
         
         if (cleanCat.equals(cleanPt)) return true;
-        
-        if (pt == PhotoType.FRONT_VIEW && (cleanCat.equals("FRONT") || cleanCat.equals("FRONTVIEW"))) return true;
-        if (pt == PhotoType.REAR_VIEW && (cleanCat.equals("REAR") || cleanCat.equals("REARVIEW") || cleanCat.equals("BACK"))) return true;
-        if (pt == PhotoType.LEFT_FRONT_VIEW && (cleanCat.equals("LEFT") || cleanCat.equals("LEFTFRONT") || cleanCat.equals("LEFTFRONTVIEW"))) return true;
-        if (pt == PhotoType.RIGHT_FRONT_VIEW && (cleanCat.equals("RIGHT") || cleanCat.equals("RIGHTFRONT") || cleanCat.equals("RIGHTFRONTVIEW"))) return true;
-        if (pt == PhotoType.ROOF_VIEW && (cleanCat.equals("ROOF") || cleanCat.equals("ROOFVIEW"))) return true;
-        if (pt == PhotoType.ENGINE_IMAGE && (cleanCat.equals("ENGINE") || cleanCat.equals("ENGINEIMAGE"))) return true;
-        if (pt == PhotoType.BATTERY_IMAGE && (cleanCat.equals("BATTERY") || cleanCat.equals("BATTERYIMAGE"))) return true;
-        if (pt == PhotoType.ODOMETER_IMAGE && (cleanCat.equals("ODOMETER") || cleanCat.equals("ODOMETERIMAGE"))) return true;
-        if (pt == PhotoType.DASHBOARD_IMAGE && (cleanCat.equals("DASHBOARD") || cleanCat.equals("DASHBOARDIMAGE") || cleanCat.equals("INTERIOR"))) return true;
-        if (pt == PhotoType.AC_CONTROL_IMAGE && (cleanCat.equals("AC") || cleanCat.equals("ACCONTROL") || cleanCat.equals("ACCONTROLIMAGE"))) return true;
-        if (pt == PhotoType.INSTRUMENT_CLUSTER_IMAGE && (cleanCat.equals("CLUSTER") || cleanCat.equals("INSTRUMENTCLUSTER") || cleanCat.equals("INSTRUMENTCLUSTERIMAGE"))) return true;
-        if (pt == PhotoType.MUSIC_SYSTEM_IMAGE && (cleanCat.equals("MUSIC") || cleanCat.equals("MUSICSYSTEM") || cleanCat.equals("MUSICSYSTEMIMAGE"))) return true;
-        
+
+        switch (pt) {
+            case FRONT_VIEW:
+                return cleanCat.equals("FRONT") || cleanCat.equals("FRONTSIDE") || cleanCat.equals("FRONTVIEW");
+            case RIGHT_FRONT_VIEW:
+                return cleanCat.equals("RIGHT") || cleanCat.equals("RIGHTSIDE") || cleanCat.equals("RIGHTFRONT") || cleanCat.equals("RIGHTFRONTVIEW");
+            case REAR_VIEW:
+                return cleanCat.equals("REAR") || cleanCat.equals("REARSIDE") || cleanCat.equals("REARVIEW") || cleanCat.equals("BACK");
+            case LEFT_FRONT_VIEW:
+                return cleanCat.equals("LEFT") || cleanCat.equals("LEFTSIDE") || cleanCat.equals("LEFTFRONT") || cleanCat.equals("LEFTFRONTVIEW");
+            case ROOF_VIEW:
+                return cleanCat.equals("ROOF") || cleanCat.equals("ROOFTOP") || cleanCat.equals("ROOFVIEW");
+            case ENGINE_IMAGE:
+                return cleanCat.equals("ENGINE") || cleanCat.equals("ENGINEIMG") || cleanCat.equals("ENGINEIMAGE");
+            case BATTERY_IMAGE:
+                return cleanCat.equals("BATTERY") || cleanCat.equals("BATTERYIMG") || cleanCat.equals("BATTERYIMAGE") || cleanCat.equals("INTERIOR");
+            case FRONT_RIGHT_TYRE:
+                return cleanCat.contains("RFTYRE") || cleanCat.equals("FRONTRIGHT") || cleanCat.equals("FRONTRIGHTTYRE") || cleanCat.equals("RF");
+            case REAR_RIGHT_TYRE:
+                return cleanCat.contains("RRTYRE") || cleanCat.equals("REARRIGHT") || cleanCat.equals("REARRIGHTTYRE") || cleanCat.equals("RR");
+            case FRONT_LEFT_TYRE:
+                return cleanCat.contains("LFTYRE") || cleanCat.equals("FRONTLEFT") || cleanCat.equals("FRONTLEFTTYRE") || cleanCat.equals("LF");
+            case REAR_LEFT_TYRE:
+                return cleanCat.contains("LRTYRE") || cleanCat.equals("REARLEFT") || cleanCat.equals("REARLEFTTYRE") || cleanCat.equals("LR");
+            case SPARE_WHEEL:
+                return cleanCat.contains("SPARE") || cleanCat.equals("SPAREWHEEL") || cleanCat.equals("SPAREWHEELIMG");
+            case ODOMETER_IMAGE:
+                return cleanCat.equals("ODOMETER") || cleanCat.equals("ODOMETERIMG") || cleanCat.equals("ODOMETERIMAGE");
+            case DASHBOARD_IMAGE:
+                return cleanCat.equals("DASHBOARD") || cleanCat.equals("DASHBOARDIMG") || cleanCat.equals("DASHBOARDIMAGE");
+            case AC_CONTROL_IMAGE:
+                return cleanCat.contains("AC") || cleanCat.equals("ACCONTROL") || cleanCat.equals("ACCONTROLIMAGE") || cleanCat.equals("ACIMG");
+            case INSTRUMENT_CLUSTER_IMAGE:
+                return cleanCat.contains("CLUSTER") || cleanCat.equals("INSTRUMENTCLUSTER") || cleanCat.equals("INSTRUMENTCLUSTERIMAGE") || cleanCat.equals("CLUSTERIMG");
+            case MUSIC_SYSTEM_IMAGE:
+                return cleanCat.contains("MUSIC") || cleanCat.contains("INFOTAINMENT") || cleanCat.equals("MUSICSYSTEM") || cleanCat.equals("MUSICSYSTEMIMAGE") || cleanCat.equals("MUSICSYSTEMIMG");
+            default:
+                return cleanCat.contains(cleanPt) || cleanPt.contains(cleanCat);
+        }
+    }
+
+    private boolean isDiagnosticPhotoMatch(String cat, String componentName) {
+        if (cat == null || componentName == null) return false;
+        String cleanCat = cat.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        String cleanComp = componentName.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+
+        if (cleanCat.equals(cleanComp) || cleanCat.contains(cleanComp) || cleanComp.contains(cleanCat)) {
+            return true;
+        }
+
+        if (cleanComp.contains("INSTRUMENTCLUSTER") || cleanComp.contains("CLUSTER")) {
+            if (cleanCat.contains("CLUSTER") || cleanCat.contains("INSTRUMENT")) return true;
+        }
+
+        if (cleanComp.contains("INFOTAINMENT") || cleanComp.contains("MUSICSYSTEM") || cleanComp.contains("MUSIC")) {
+            if (cleanCat.contains("MUSIC") || cleanCat.contains("INFOTAINMENT") || cleanCat.contains("AUDIO")) return true;
+        }
+
+        if (cleanComp.contains("DASHBOARD")) {
+            if (cleanCat.contains("DASHBOARD") || cleanCat.contains("INTERIOR")) return true;
+        }
+
+        if (cleanComp.contains("ACCOOLING") || cleanComp.contains("AC")) {
+            if (cleanCat.contains("AC") || cleanCat.contains("CLIMATE")) return true;
+        }
+
+        if (cleanComp.contains("BATTERY")) {
+            if (cleanCat.contains("BATTERY") || cleanCat.contains("ENGINE")) return true;
+        }
+
+        if (cleanComp.contains("HEADLIGHT") || cleanComp.contains("HEADLAMP")) {
+            if (cleanCat.contains("HEAD") || cleanCat.contains("LIGHT") || cleanCat.contains("FRONT")) return true;
+        }
+
+        if (cleanComp.contains("TAILLIGHT") || cleanComp.contains("TAILLAMP")) {
+            if (cleanCat.contains("TAIL") || cleanCat.contains("REAR") || cleanCat.contains("LIGHT")) return true;
+        }
+
+        if (cleanComp.contains("FOGLAMP") || cleanComp.contains("FOGLIGHT")) {
+            if (cleanCat.contains("FOG") || cleanCat.contains("LIGHT")) return true;
+        }
+
         return false;
     }
 
@@ -521,13 +650,15 @@ public class PdfGeneratorService {
         table.addCell(labelCell);
 
         // 2. Status cell with color coding
-        boolean isOk = value != null && (value.toUpperCase().contains("OK") || value.toUpperCase().contains("WORKING") || value.toUpperCase().contains("YES"));
+        boolean isOk = value != null && (value.toUpperCase().contains("OK") || value.toUpperCase().contains("WORKING") || value.toUpperCase().contains("YES") || value.toUpperCase().contains("SATISFACTORY"));
         Font statusFont = valFont;
         if (value != null && !value.isEmpty()) {
             if (isOk) {
                 statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(16, 185, 129)); // Green
-            } else {
+            } else if (value.toUpperCase().contains("NO") || value.toUpperCase().contains("DAMAGED") || value.toUpperCase().contains("NOT WORKING")) {
                 statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(239, 68, 68)); // Red
+            } else {
+                statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD, new Color(245, 158, 11)); // Amber / Orange
             }
         }
         
@@ -544,10 +675,10 @@ public class PdfGeneratorService {
         photoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
         InspectionImage matched = null;
-        if (images != null && value != null) {
+        if (images != null && name != null) {
             for (InspectionImage img : images) {
                 if (img.getImageCategory() != null && img.getImageUrl() != null) {
-                    if (img.getImageCategory().equalsIgnoreCase(name)) {
+                    if (isDiagnosticPhotoMatch(img.getImageCategory(), name)) {
                         matched = img;
                         break;
                     }
@@ -555,21 +686,12 @@ public class PdfGeneratorService {
             }
         }
 
-        if (matched != null) {
-            String url = matched.getImageUrl();
-            String filename = url.substring(url.lastIndexOf("/") + 1);
-            java.nio.file.Path imagePath = java.nio.file.Paths.get("uploads/car/images/").resolve(filename);
-            if (java.nio.file.Files.exists(imagePath)) {
-                try {
-                    Image pdfImg = Image.getInstance(imagePath.toString());
-                    pdfImg.scaleToFit(50, 38);
-                    pdfImg.setAlignment(Element.ALIGN_CENTER);
-                    photoCell.addElement(pdfImg);
-                } catch (Exception e) {
-                    photoCell.addElement(new Phrase("Error", valFont));
-                }
+        if (matched != null && matched.getImageUrl() != null) {
+            Image pdfImg = createPdfImage(matched.getImageUrl(), 50, 38);
+            if (pdfImg != null) {
+                photoCell.addElement(pdfImg);
             } else {
-                photoCell.addElement(new Phrase("Missing", valFont));
+                photoCell.addElement(new Phrase("Error", valFont));
             }
         } else {
             photoCell.addElement(new Phrase("-", valFont));

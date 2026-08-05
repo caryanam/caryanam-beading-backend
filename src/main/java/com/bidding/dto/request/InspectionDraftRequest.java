@@ -30,6 +30,8 @@ public class InspectionDraftRequest {
     public static class VehicleDraftDTO {
         private String vehicleNumber;
         private String ownerName;
+        private String customerName;
+        private String customerMobileNumber;
         private String brand;
         private String model;
         private String variant;

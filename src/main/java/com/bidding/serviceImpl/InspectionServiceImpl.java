@@ -4,6 +4,7 @@ import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
 import com.bidding.dto.responce.InspectorStatsResponse;
+import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.BidResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.entity.*;
@@ -102,6 +103,8 @@ public class InspectionServiceImpl implements InspectionService {
         if (request.getVehicleDetails() != null) {
             InspectionDraftRequest.VehicleDraftDTO vDto = request.getVehicleDetails();
             if (vDto.getOwnerName() != null) vehicle.setOwnerName(vDto.getOwnerName());
+            if (vDto.getCustomerName() != null) vehicle.setOwnerName(vDto.getCustomerName());
+            if (vDto.getCustomerMobileNumber() != null) vehicle.setCustomerMobileNumber(vDto.getCustomerMobileNumber());
             if (vDto.getBrand() != null) vehicle.setBrand(vDto.getBrand());
             if (vDto.getModel() != null) vehicle.setModel(vDto.getModel());
             if (vDto.getVariant() != null) vehicle.setVariant(vDto.getVariant());
@@ -407,6 +410,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
                             .ownerName(v != null ? v.getOwnerName() : "N/A")
+                            .customerMobileNumber(v != null ? v.getCustomerMobileNumber() : null)
                             .brand(v != null ? v.getBrand() : "N/A")
                             .model(v != null ? v.getModel() : "N/A")
                             .variant(v != null ? v.getVariant() : "N/A")
@@ -442,6 +446,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
                             .ownerName(v != null ? v.getOwnerName() : "N/A")
+                            .customerMobileNumber(v != null ? v.getCustomerMobileNumber() : null)
                             .brand(v != null ? v.getBrand() : "N/A")
                             .model(v != null ? v.getModel() : "N/A")
                             .variant(v != null ? v.getVariant() : "N/A")
@@ -677,6 +682,8 @@ public class InspectionServiceImpl implements InspectionService {
                         .id(v.getId())
                         .vehicleNumber(v.getVehicleNumber())
                         .ownerName(v.getOwnerName())
+                        .customerName(v.getOwnerName())
+                        .customerMobileNumber(v.getCustomerMobileNumber())
                         .brand(v.getBrand())
                         .model(v.getModel())
                         .variant(v.getVariant())
@@ -871,6 +878,33 @@ public class InspectionServiceImpl implements InspectionService {
                 .completedReports(completedReports)
                 .vehiclesSubmitted(vehiclesSubmitted)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InspectorResponseDTO> getAllInspectors() {
+        return inspectorRepository.findAll().stream()
+                .map(inspector -> {
+                    long uploads = inspectionRepository.findByInspectorId(inspector.getId()).size();
+                    return InspectorResponseDTO.builder()
+                            .id(inspector.getId())
+                            .fullName(inspector.getFullName())
+                            .email(inspector.getEmail())
+                            .mobileNumber(inspector.getMobileNumber())
+                            .role(inspector.getRole())
+                            .uploads((int) uploads)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteInspector(Long id) {
+        if (!inspectorRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Inspector not found with id: " + id);
+        }
+        inspectorRepository.deleteById(id);
     }
 
     @Override

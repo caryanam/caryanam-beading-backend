@@ -46,6 +46,8 @@ public class InspectionDetailsResponse {
         private Long id;
         private String vehicleNumber;
         private String ownerName;
+        private String customerName;
+        private String customerMobileNumber;
         private String brand;
         private String model;
         private String variant;

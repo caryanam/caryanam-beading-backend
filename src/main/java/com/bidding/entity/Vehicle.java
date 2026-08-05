@@ -24,6 +24,9 @@ public class Vehicle {
     @Column(name = "owner_name")
     private String ownerName;
 
+    @Column(name = "customer_mobile_number")
+    private String customerMobileNumber;
+
     private String brand;
     private String model;
     private String variant;

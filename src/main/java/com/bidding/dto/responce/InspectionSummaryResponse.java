@@ -14,6 +14,7 @@ public class InspectionSummaryResponse {
     private Long inspectionId;
     private String vehicleNumber;
     private String ownerName;
+    private String customerMobileNumber;
     private String brand;
     private String model;
     private String variant;

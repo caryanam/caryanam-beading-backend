@@ -25,7 +25,7 @@ public class AuctionScheduler {
     private final VehicleRepository vehicleRepository;
     private final AuctionWebSocketHandler webSocketHandler;
 
-    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelay = 10000)
     @Transactional
     public void checkExpiredAuctions() {
         List<Inspection> activeInspections = inspectionRepository.findAll().stream()

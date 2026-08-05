@@ -4,6 +4,7 @@ import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
 import com.bidding.dto.responce.InspectorStatsResponse;
+import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
 
 import java.util.List;
@@ -33,6 +34,10 @@ public interface InspectionService {
     void deleteInspection(Long id);
 
     InspectorStatsResponse getInspectorStats(Long inspectorId);
+
+    List<InspectorResponseDTO> getAllInspectors();
+
+    void deleteInspector(Long id);
 
     List<DealerResponseDTO> getAllDealers();
 
