@@ -9,6 +9,10 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
 
     Optional<Admin> findByEmail(String email);
 
+    Optional<Admin> findByMobileNumber(String mobileNumber);
+
+    Optional<Admin> findByEmailOrMobileNumber(String email, String mobileNumber);
+
     boolean existsByRole(com.bidding.enums.Role role);
 
     boolean existsByEmail(String email);

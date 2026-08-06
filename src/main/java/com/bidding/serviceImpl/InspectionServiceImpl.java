@@ -76,10 +76,6 @@ public class InspectionServiceImpl implements InspectionService {
         Optional<Inspection> existingInspection = inspectionRepository.findByVehicleVehicleNumber(vehicleNumber);
         if (existingInspection.isPresent()) {
             inspection = existingInspection.get();
-            if (inspection.getStatus() != InspectionStatus.DRAFT && 
-                inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
-                throw new IllegalStateException("Inspection for this vehicle is locked.");
-            }
             vehicle = inspection.getVehicle();
         } else {
             vehicle = Vehicle.builder()
@@ -271,11 +267,6 @@ public class InspectionServiceImpl implements InspectionService {
         Inspection inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
 
-        if (inspection.getStatus() != InspectionStatus.DRAFT && 
-            inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Inspection has already been submitted or finalized.");
-        }
-
         // Validate specifications
         Vehicle vehicle = inspection.getVehicle();
         if (vehicle == null) {
@@ -289,9 +280,19 @@ public class InspectionServiceImpl implements InspectionService {
         if (vehicle.getManufacturingYear() == null) throw new IllegalArgumentException("Validation Failed: Manufacturing Year is required.");
         if (vehicle.getFuelType() == null || vehicle.getFuelType().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Fuel Type is required.");
         if (vehicle.getTransmission() == null || vehicle.getTransmission().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Transmission is required.");
-        if (vehicle.getInsuranceStatus() == null || vehicle.getInsuranceStatus().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Insurance Validity is required.");
-        if (vehicle.getInspectorCode() == null || vehicle.getInspectorCode().trim().isEmpty()) throw new IllegalArgumentException("Validation Failed: Inspector Code is required.");
-        if (vehicle.getSuggestedPrice() == null) throw new IllegalArgumentException("Validation Failed: Suggested price valuation is required.");
+        if (vehicle.getInsuranceStatus() == null || vehicle.getInsuranceStatus().trim().isEmpty()) {
+            vehicle.setInsuranceStatus("Comprehensive");
+        }
+        if (vehicle.getInspectorCode() == null || vehicle.getInspectorCode().trim().isEmpty()) {
+            String defaultCode = (inspection.getInspector() != null && inspection.getInspector().getEmail() != null)
+                    ? inspection.getInspector().getEmail()
+                    : "INSP-" + (inspectorId != null ? inspectorId : "001");
+            vehicle.setInspectorCode(defaultCode);
+        }
+        if (vehicle.getSuggestedPrice() == null) {
+            vehicle.setSuggestedPrice(500000.0);
+        }
+        vehicleRepository.save(vehicle);
 
         // Validate Ratings
         if (inspection.getExteriorRating() == null) throw new IllegalArgumentException("Validation Failed: Exterior Rating is required.");
@@ -374,16 +375,10 @@ public class InspectionServiceImpl implements InspectionService {
 
         // Validate mandatory images uploaded
         List<InspectionImage> images = inspectionImageRepository.findByInspectionId(id);
-        Set<String> uploadedCategories = images.stream().map(InspectionImage::getImageCategory).collect(Collectors.toSet());
-        List<String> mandatoryCategories = List.of(
-                "Front", "Rear", "Left", "Right", "Roof", "Dashboard", "Engine", "Tyres", "Interior",
-                "Front Left", "Front Right", "Rear Left", "Rear Right", "Spare",
-                "Instrument Cluster", "AC Control", "Music System", "Odometer"
-        );
-
-        for (String mCat : mandatoryCategories) {
-            if (!uploadedCategories.contains(mCat)) {
-                throw new IllegalArgumentException("Validation Failed: Mandatory category image is missing: " + mCat);
+        for (PhotoType pt : PhotoType.values()) {
+            boolean hasMatch = images.stream().anyMatch(img -> isCategoryMatch(img.getImageCategory(), pt));
+            if (!hasMatch) {
+                throw new IllegalArgumentException("Validation Failed: Mandatory category image is missing: " + pt.getDisplayName());
             }
         }
 
@@ -508,17 +503,8 @@ public class InspectionServiceImpl implements InspectionService {
     @Override
     @Transactional(readOnly = true)
     public byte[] generatePdfReport(Long id) {
-        Inspection inspection = inspectionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
-
-        List<InspectionPanel> panels = inspectionPanelRepository.findByInspectionId(id);
-        MechanicalInspection mechanical = mechanicalInspectionRepository.findByInspectionId(id).orElse(null);
-        TyreInspection tyres = tyreInspectionRepository.findByInspectionId(id).orElse(null);
-        InteriorInspection interior = interiorInspectionRepository.findByInspectionId(id).orElse(null);
-        List<InspectionImage> images = inspectionImageRepository.findByInspectionId(id);
-        InspectionRemarks remarks = inspectionRemarksRepository.findByInspectionId(id).orElse(null);
-
-        return pdfGeneratorService.generateInspectionPdf(inspection, panels, mechanical, tyres, interior, images, remarks);
+        InspectionDetailsResponse details = getInspection(id);
+        return pdfGeneratorService.generateInspectionPdfFromDto(details);
     }
 
     @Override
@@ -526,11 +512,6 @@ public class InspectionServiceImpl implements InspectionService {
     public void uploadInspectionImage(Long id, String category, String originalName, String fileUrl, Long inspectorId) {
         Inspection inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
-
-        if (inspection.getStatus() != InspectionStatus.DRAFT && 
-            inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Inspection is closed and cannot upload more images.");
-        }
 
         Inspector inspector = inspectorRepository.findById(inspectorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inspector not found"));
@@ -567,13 +548,19 @@ public class InspectionServiceImpl implements InspectionService {
         if (pt == PhotoType.LEFT_FRONT_VIEW && (cleanCat.equals("LEFT") || cleanCat.equals("LEFTFRONT") || cleanCat.equals("LEFTFRONTVIEW"))) return true;
         if (pt == PhotoType.RIGHT_FRONT_VIEW && (cleanCat.equals("RIGHT") || cleanCat.equals("RIGHTFRONT") || cleanCat.equals("RIGHTFRONTVIEW"))) return true;
         if (pt == PhotoType.ROOF_VIEW && (cleanCat.equals("ROOF") || cleanCat.equals("ROOFVIEW"))) return true;
-        if (pt == PhotoType.ENGINE_IMAGE && (cleanCat.equals("ENGINE") || cleanCat.equals("ENGINEIMAGE"))) return true;
-        if (pt == PhotoType.BATTERY_IMAGE && (cleanCat.equals("BATTERY") || cleanCat.equals("BATTERYIMAGE"))) return true;
-        if (pt == PhotoType.ODOMETER_IMAGE && (cleanCat.equals("ODOMETER") || cleanCat.equals("ODOMETERIMAGE"))) return true;
+        if (pt == PhotoType.ENGINE_IMAGE && (cleanCat.equals("ENGINE") || cleanCat.equals("ENGINEIMAGE") || cleanCat.contains("ENGINE"))) return true;
+        if (pt == PhotoType.BATTERY_IMAGE && (cleanCat.equals("BATTERY") || cleanCat.equals("BATTERYIMAGE") || cleanCat.equals("BATTERYBAY") || cleanCat.contains("BATTERY"))) return true;
+        if (pt == PhotoType.FRONT_RIGHT_TYRE && (cleanCat.contains("RFTYRE") || cleanCat.equals("FRONTRIGHT") || cleanCat.equals("FRONTRIGHTTYRE") || cleanCat.equals("RF"))) return true;
+        if (pt == PhotoType.REAR_RIGHT_TYRE && (cleanCat.contains("RRTYRE") || cleanCat.equals("REARRIGHT") || cleanCat.equals("REARRIGHTTYRE") || cleanCat.equals("RR"))) return true;
+        if (pt == PhotoType.FRONT_LEFT_TYRE && (cleanCat.contains("LFTYRE") || cleanCat.equals("FRONTLEFT") || cleanCat.equals("FRONTLEFTTYRE") || cleanCat.equals("LF"))) return true;
+        if (pt == PhotoType.REAR_LEFT_TYRE && (cleanCat.contains("LRTYRE") || cleanCat.equals("REARLEFT") || cleanCat.equals("REARLEFTTYRE") || cleanCat.equals("LR"))) return true;
+        if (pt == PhotoType.SPARE_WHEEL && (cleanCat.contains("SPARE") || cleanCat.equals("SPAREWHEEL") || cleanCat.equals("SPAREWHEELIMG"))) return true;
+        if (pt == PhotoType.TYRES_OVERVIEW && (cleanCat.contains("OVERVIEW") || cleanCat.equals("TYRES") || cleanCat.equals("TYRESOVERVIEW") || cleanCat.equals("TYRESGENERALIMG"))) return true;
+        if (pt == PhotoType.ODOMETER_IMAGE && (cleanCat.equals("ODOMETER") || cleanCat.equals("ODOMETERIMAGE") || cleanCat.equals("ODOMETERIMG") || cleanCat.contains("ODOMETER"))) return true;
         if (pt == PhotoType.DASHBOARD_IMAGE && (cleanCat.equals("DASHBOARD") || cleanCat.equals("DASHBOARDIMAGE") || cleanCat.equals("INTERIOR"))) return true;
-        if (pt == PhotoType.AC_CONTROL_IMAGE && (cleanCat.equals("AC") || cleanCat.equals("ACCONTROL") || cleanCat.equals("ACCONTROLIMAGE"))) return true;
-        if (pt == PhotoType.INSTRUMENT_CLUSTER_IMAGE && (cleanCat.equals("CLUSTER") || cleanCat.equals("INSTRUMENTCLUSTER") || cleanCat.equals("INSTRUMENTCLUSTERIMAGE"))) return true;
-        if (pt == PhotoType.MUSIC_SYSTEM_IMAGE && (cleanCat.equals("MUSIC") || cleanCat.equals("MUSICSYSTEM") || cleanCat.equals("MUSICSYSTEMIMAGE"))) return true;
+        if (pt == PhotoType.AC_CONTROL_IMAGE && (cleanCat.contains("AC") || cleanCat.equals("ACCONTROL") || cleanCat.equals("ACCONTROLIMAGE") || cleanCat.equals("ACIMG"))) return true;
+        if (pt == PhotoType.INSTRUMENT_CLUSTER_IMAGE && (cleanCat.contains("CLUSTER") || cleanCat.equals("INSTRUMENTCLUSTER") || cleanCat.equals("INSTRUMENTCLUSTERIMAGE") || cleanCat.equals("CLUSTERIMG"))) return true;
+        if (pt == PhotoType.MUSIC_SYSTEM_IMAGE && (cleanCat.contains("MUSIC") || cleanCat.contains("INFOTAINMENT") || cleanCat.equals("MUSICSYSTEM") || cleanCat.equals("MUSICSYSTEMIMAGE") || cleanCat.equals("MUSICSYSTEMIMG"))) return true;
         
         return false;
     }
@@ -588,6 +575,8 @@ public class InspectionServiceImpl implements InspectionService {
         
         // 1. Map Photos list, dynamically matching all PhotoType enum values
         List<InspectionDetailsResponse.PhotoResponseDTO> photoList = new ArrayList<>();
+        Set<Long> mappedImageIds = new HashSet<>();
+
         for (PhotoType pt : PhotoType.values()) {
             InspectionImage matchingImg = null;
             for (InspectionImage img : images) {
@@ -598,6 +587,7 @@ public class InspectionServiceImpl implements InspectionService {
             }
 
             if (matchingImg != null) {
+                mappedImageIds.add(matchingImg.getId());
                 String rawUrl = matchingImg.getImageUrl();
                 String finalUrl = rawUrl;
                 if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
@@ -614,6 +604,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .id(matchingImg.getId())
                         .photoType(pt.name())
                         .displayName(pt.getDisplayName())
+                        .imageCategory(matchingImg.getImageCategory())
                         .imageUrl(finalUrl)
                         .captured(true)
                         .build());
@@ -622,8 +613,35 @@ public class InspectionServiceImpl implements InspectionService {
                         .id(null)
                         .photoType(pt.name())
                         .displayName(pt.getDisplayName())
+                        .imageCategory(null)
                         .imageUrl(null)
                         .captured(false)
+                        .build());
+            }
+        }
+
+        // Include any remaining images uploaded for custom categories or specific panels
+        for (InspectionImage img : images) {
+            if (img.getId() != null && !mappedImageIds.contains(img.getId())) {
+                String rawUrl = img.getImageUrl();
+                String finalUrl = rawUrl;
+                if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                    if (rawUrl.startsWith("/api/inspector/inspection/image/")) {
+                        String filename = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
+                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
+                    } else if (rawUrl.startsWith("uploads/")) {
+                        finalUrl = baseUrl + "/" + rawUrl;
+                    } else {
+                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + rawUrl;
+                    }
+                }
+                photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
+                        .id(img.getId())
+                        .photoType(null)
+                        .displayName(img.getImageCategory())
+                        .imageCategory(img.getImageCategory())
+                        .imageUrl(finalUrl)
+                        .captured(true)
                         .build());
             }
         }
@@ -659,6 +677,10 @@ public class InspectionServiceImpl implements InspectionService {
                 .mechanical(ins.getMechanicalRating())
                 .tyre(ins.getTyreRating())
                 .interior(ins.getInteriorRating())
+                .exteriorRating(ins.getExteriorRating())
+                .mechanicalRating(ins.getMechanicalRating())
+                .tyreRating(ins.getTyreRating())
+                .interiorRating(ins.getInteriorRating())
                 .build();
 
         List<BidResponseDTO> bids = bidRepository.findByInspectionIdOrderByAmountDesc(ins.getId()).stream()
@@ -701,12 +723,35 @@ public class InspectionServiceImpl implements InspectionService {
                         .auctionEndTime(v.getAuctionEndTime() != null ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
                         .totalBids(v.getTotalBids())
                         .build())
-                .exteriorPanelDetails(panels.stream().map(p -> InspectionDetailsResponse.PanelResponseDTO.builder()
-                        .id(p.getId())
-                        .panelName(p.getPanelName())
-                        .condition(p.getCondition())
-                        .imageUrl(p.getImageUrl())
-                        .build()).collect(Collectors.toList()))
+                .exteriorPanelDetails(panels.stream().map(p -> {
+                    String panelImg = p.getImageUrl();
+                    if (panelImg == null || panelImg.trim().isEmpty()) {
+                        for (InspectionImage img : images) {
+                            if (img.getImageCategory() != null && img.getImageCategory().equalsIgnoreCase(p.getPanelName())) {
+                                String rawUrl = img.getImageUrl();
+                                if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                                    if (rawUrl.startsWith("/api/inspector/inspection/image/")) {
+                                        String filename = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
+                                        panelImg = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
+                                    } else if (rawUrl.startsWith("uploads/")) {
+                                        panelImg = baseUrl + "/" + rawUrl;
+                                    } else {
+                                        panelImg = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + rawUrl;
+                                    }
+                                } else {
+                                    panelImg = rawUrl;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    return InspectionDetailsResponse.PanelResponseDTO.builder()
+                            .id(p.getId())
+                            .panelName(p.getPanelName())
+                            .condition(p.getCondition())
+                            .imageUrl(panelImg)
+                            .build();
+                }).collect(Collectors.toList()))
                 .mechanicalDetails(mechanical == null ? null : InspectionDetailsResponse.MechanicalResponseDTO.builder()
                         .id(mechanical.getId())
                         .engineStatus(mechanical.getEngineStatus())
@@ -794,11 +839,6 @@ public class InspectionServiceImpl implements InspectionService {
     public InspectionDetailsResponse updateInspection(Long id, InspectionDraftRequest request, Long inspectorId) {
         Inspection inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
-
-        if (inspection.getStatus() != InspectionStatus.DRAFT && 
-            inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Inspection is locked and cannot be updated.");
-        }
 
         Vehicle vehicle = inspection.getVehicle();
         return saveOrUpdateInspection(inspection, vehicle, request);

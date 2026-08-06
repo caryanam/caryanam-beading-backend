@@ -8,6 +8,7 @@ import com.bidding.dto.responce.AuthResponse;
 import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.service.AuthService;
+import com.bidding.service.OtpService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -16,13 +17,68 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api")
-@Tag(name = "Authentication", description = "Authentication and Registration APIs")
+@Tag(name = "Authentication", description = "Authentication, OTP Verification, and Registration APIs")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+    private final OtpService otpService;
+
+    @PostMapping("/auth/send-otp")
+    @Operation(summary = "Send OTP to Email for Registration")
+    public ResponseEntity<ApiResponse<Void>> sendOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String mobile = request.get("mobile");
+        otpService.sendOtp(email, mobile);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("OTP sent successfully to " + email)
+                        .build()
+        );
+    }
+
+    @PostMapping("/auth/send-password-otp")
+    @Operation(summary = "Send OTP to Email for Password Change")
+    public ResponseEntity<ApiResponse<Void>> sendPasswordOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        otpService.sendPasswordResetOtp(email);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Password verification OTP sent successfully to " + email)
+                        .build()
+        );
+    }
+
+    @PostMapping("/auth/verify-otp")
+    @Operation(summary = "Verify Email OTP for Registration")
+    public ResponseEntity<ApiResponse<Boolean>> verifyOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String otp = request.get("otp");
+        boolean isValid = otpService.verifyOtp(email, otp);
+        if (isValid) {
+            return ResponseEntity.ok(
+                    ApiResponse.<Boolean>builder()
+                            .success(true)
+                            .message("OTP verified successfully!")
+                            .data(true)
+                            .build()
+            );
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    ApiResponse.<Boolean>builder()
+                            .success(false)
+                            .message("Invalid or expired OTP. Please try again.")
+                            .data(false)
+                            .build()
+            );
+        }
+    }
 
     @PostMapping("/inspector/register")
     @Operation(summary = "Inspector Registration")

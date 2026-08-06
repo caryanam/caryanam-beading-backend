@@ -36,6 +36,9 @@ public class DealerProfileController {
                 .ownerName(dealer.getOwnerName())
                 .email(dealer.getEmail())
                 .mobileNumber(dealer.getMobileNumber())
+                .address(dealer.getAddress())
+                .area(dealer.getArea())
+                .city(dealer.getCity())
                 .role(dealer.getRole())
                 .build();
 
@@ -52,8 +55,11 @@ public class DealerProfileController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ProfileUpdateRequest request) {
         Dealer dealer = getDealer(userDetails);
-        dealer.setOwnerName(request.getFullName());
-        dealer.setMobileNumber(request.getMobileNumber());
+        if (request.getFullName() != null) dealer.setOwnerName(request.getFullName());
+        if (request.getDealershipName() != null) dealer.setDealershipName(request.getDealershipName());
+        if (request.getAddress() != null) dealer.setAddress(request.getAddress());
+        if (request.getArea() != null) dealer.setArea(request.getArea());
+        if (request.getCity() != null) dealer.setCity(request.getCity());
         dealerRepository.save(dealer);
 
         DealerResponseDTO dto = DealerResponseDTO.builder()
@@ -62,6 +68,9 @@ public class DealerProfileController {
                 .ownerName(dealer.getOwnerName())
                 .email(dealer.getEmail())
                 .mobileNumber(dealer.getMobileNumber())
+                .address(dealer.getAddress())
+                .area(dealer.getArea())
+                .city(dealer.getCity())
                 .role(dealer.getRole())
                 .build();
 
@@ -79,8 +88,10 @@ public class DealerProfileController {
             @Valid @RequestBody PasswordChangeRequest request) {
         Dealer dealer = getDealer(userDetails);
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), dealer.getPassword())) {
-            throw new IllegalArgumentException("Current password does not match.");
+        if (request.getCurrentPassword() != null && !request.getCurrentPassword().trim().isEmpty()) {
+            if (!passwordEncoder.matches(request.getCurrentPassword(), dealer.getPassword())) {
+                throw new IllegalArgumentException("Current password does not match.");
+            }
         }
 
         dealer.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -103,12 +114,12 @@ public class DealerProfileController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ProfileUpdateRequest {
-        @NotBlank(message = "Owner name cannot be blank")
         private String fullName;
-
-        @NotBlank(message = "Mobile number cannot be blank")
-        @Size(min = 10, max = 10, message = "Mobile number must be exactly 10 digits")
+        private String dealershipName;
         private String mobileNumber;
+        private String address;
+        private String area;
+        private String city;
     }
 
     @Getter
@@ -116,7 +127,6 @@ public class DealerProfileController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PasswordChangeRequest {
-        @NotBlank(message = "Current password cannot be blank")
         private String currentPassword;
 
         @NotBlank(message = "New password cannot be blank")

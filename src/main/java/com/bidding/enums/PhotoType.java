@@ -18,6 +18,7 @@ public enum PhotoType {
     FRONT_LEFT_TYRE,
     REAR_LEFT_TYRE,
     SPARE_WHEEL,
+    TYRES_OVERVIEW,
 
     // Interior
     ODOMETER_IMAGE,

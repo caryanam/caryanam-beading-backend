@@ -35,13 +35,14 @@ public class SecurityConfig {
 
                         // Public authentication & registration endpoints
                         .requestMatchers(HttpMethod.POST,
-                                "/api/auth/login",
+                                "/api/auth/**",
                                 "/api/inspector/register",
                                 "/api/dealer/register").permitAll()
 
-                        // Public image serving
+                        // Public image serving & PDF report downloading
                         .requestMatchers(HttpMethod.GET, "/api/inspector/inspection/image/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/inspector/inspection/*/pdf").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/admin/inspection/*/pdf").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/ws/auction/**", "/ws/auction").permitAll()
 

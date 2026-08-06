@@ -173,6 +173,7 @@ public class InspectionDetailsResponse {
         private Long id;
         private String photoType;
         private String displayName;
+        private String imageCategory;
         private String imageUrl;
         private boolean captured;
     }
@@ -198,5 +199,9 @@ public class InspectionDetailsResponse {
         private Double mechanical;
         private Double tyre;
         private Double interior;
+        private Double exteriorRating;
+        private Double mechanicalRating;
+        private Double tyreRating;
+        private Double interiorRating;
     }
 }

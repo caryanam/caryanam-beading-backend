@@ -35,11 +35,16 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final com.bidding.service.OtpService otpService;
 
     @Override
     public InspectorResponseDTO registerInspector(InspectorRegisterRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Password and Confirm Password must match");
+        }
+
+        if (!otpService.isEmailVerified(request.getEmail())) {
+            throw new IllegalArgumentException("Email address is not verified. Please request and verify OTP first.");
         }
 
         if (adminRepository.existsByEmail(request.getEmail()) || 
@@ -77,6 +82,10 @@ public class AuthServiceImpl implements AuthService {
     public DealerResponseDTO registerDealer(DealerRegisterRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Password and Confirm Password must match");
+        }
+
+        if (!otpService.isEmailVerified(request.getEmail())) {
+            throw new IllegalArgumentException("Email address is not verified. Please request and verify OTP first.");
         }
 
         if (request.getArea() == null || request.getArea().trim().length() < 3) {
@@ -132,22 +141,21 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
+        String identifier = request.getEmail() != null ? request.getEmail().trim() : "";
 
         // Check if Admin
-        Optional<Admin> adminOptional = adminRepository.findByEmail(request.getEmail());
+        Optional<Admin> adminOptional = adminRepository.findByEmailOrMobileNumber(identifier, identifier);
         if (adminOptional.isPresent()) {
             Admin admin = adminOptional.get();
 
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
+                            identifier,
                             request.getPassword()
                     )
             );
 
-
-
-            String token = jwtService.generateToken(admin.getEmail());
+            String token = jwtService.generateToken(admin.getEmail() != null ? admin.getEmail() : identifier);
 
             return AuthResponse.builder()
                     .id(admin.getId())
@@ -160,18 +168,18 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Check if Inspector
-        Optional<Inspector> inspectorOptional = inspectorRepository.findByEmail(request.getEmail());
+        Optional<Inspector> inspectorOptional = inspectorRepository.findByEmailOrMobileNumber(identifier, identifier);
         if (inspectorOptional.isPresent()) {
             Inspector inspector = inspectorOptional.get();
 
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
+                            identifier,
                             request.getPassword()
                     )
             );
 
-            String token = jwtService.generateToken(inspector.getEmail());
+            String token = jwtService.generateToken(inspector.getEmail() != null ? inspector.getEmail() : identifier);
 
             return AuthResponse.builder()
                     .id(inspector.getId())
@@ -184,18 +192,18 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Check if Dealer
-        Optional<Dealer> dealerOptional = dealerRepository.findByEmail(request.getEmail());
+        Optional<Dealer> dealerOptional = dealerRepository.findByEmailOrMobileNumber(identifier, identifier);
         if (dealerOptional.isPresent()) {
             Dealer dealer = dealerOptional.get();
 
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
+                            identifier,
                             request.getPassword()
                     )
             );
 
-            String token = jwtService.generateToken(dealer.getEmail());
+            String token = jwtService.generateToken(dealer.getEmail() != null ? dealer.getEmail() : identifier);
 
             return AuthResponse.builder()
                     .id(dealer.getId())
@@ -207,6 +215,6 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         }
 
-        throw new BadCredentialsException("Invalid Email or Password");
+        throw new BadCredentialsException("Invalid credentials. Please check your email/mobile number and password.");
     }
 }

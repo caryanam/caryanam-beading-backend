@@ -77,8 +77,10 @@ public class InspectorProfileController {
             @Valid @RequestBody PasswordChangeRequest request) {
         Inspector inspector = getInspector(userDetails);
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), inspector.getPassword())) {
-            throw new IllegalArgumentException("Current password does not match.");
+        if (request.getCurrentPassword() != null && !request.getCurrentPassword().trim().isEmpty()) {
+            if (!passwordEncoder.matches(request.getCurrentPassword(), inspector.getPassword())) {
+                throw new IllegalArgumentException("Current password does not match.");
+            }
         }
 
         inspector.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -114,7 +116,6 @@ public class InspectorProfileController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PasswordChangeRequest {
-        @NotBlank(message = "Current password cannot be blank")
         private String currentPassword;
 
         @NotBlank(message = "New password cannot be blank")

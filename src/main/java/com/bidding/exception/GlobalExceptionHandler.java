@@ -72,7 +72,7 @@ public class GlobalExceptionHandler {
             BadCredentialsException ex) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("success", false);
-        response.put("message", "Invalid email or password");
+        response.put("message", "Invalid credentials. Please check your email/mobile number and password.");
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
