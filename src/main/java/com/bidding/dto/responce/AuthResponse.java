@@ -30,6 +30,8 @@ public class AuthResponse {
 
     private String mobileNumber;
 
+    private String dealershipName;
+
     private Role role;
 
     private String token;

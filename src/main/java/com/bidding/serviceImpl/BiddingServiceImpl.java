@@ -35,6 +35,7 @@ public class BiddingServiceImpl implements BiddingService {
     private final InspectionRepository inspectionRepository;
     private final DealerRepository dealerRepository;
     private final AuctionWebSocketHandler webSocketHandler;
+    private final com.bidding.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -70,6 +71,8 @@ public class BiddingServiceImpl implements BiddingService {
         Dealer dealer = dealerRepository.findByEmail(dealerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Dealer not found"));
 
+        Dealer previousHighestBidder = lockedVehicle.getCurrentHighestBidder();
+
         // 6. Validate bid amount
         double currentBid = (lockedVehicle.getCurrentHighestBid() != null) ? lockedVehicle.getCurrentHighestBid() : 0.0;
         double baseValuation = (lockedVehicle.getSuggestedPrice() != null) ? lockedVehicle.getSuggestedPrice() : 0.0;
@@ -96,6 +99,42 @@ public class BiddingServiceImpl implements BiddingService {
         vehicleRepository.save(lockedVehicle);
 
         log.info("Bid successfully saved. New highest bid: {} by Dealer: {}", amount, dealer.getDealershipName());
+
+        // Create Notifications
+        String vehicleTitle = String.format("%s %s (%s)", lockedVehicle.getBrand(), lockedVehicle.getModel(), lockedVehicle.getVehicleNumber());
+        String dealerName = dealer.getDealershipName() != null ? dealer.getDealershipName() : dealer.getOwnerName();
+
+        // Admin Notification
+        notificationService.createNotification(
+                "ADMIN",
+                null,
+                inspectionId,
+                "🚨 New Bid Placed: ₹" + String.format("%,.0f", amount),
+                "Dealer " + dealerName + " placed a bid of ₹" + String.format("%,.0f", amount) + " on " + vehicleTitle + ".",
+                "BID_PLACED"
+        );
+
+        // Dealer Notification
+        notificationService.createNotification(
+                "DEALER",
+                dealer.getEmail(),
+                inspectionId,
+                "✅ Bid Confirmed: ₹" + String.format("%,.0f", amount),
+                "Your bid of ₹" + String.format("%,.0f", amount) + " for " + vehicleTitle + " has been successfully submitted.",
+                "BID_PLACED"
+        );
+
+        // Outbid Alert Notification for Previous Bidder
+        if (previousHighestBidder != null && !previousHighestBidder.getId().equals(dealer.getId())) {
+            notificationService.createNotification(
+                    "DEALER",
+                    previousHighestBidder.getEmail(),
+                    inspectionId,
+                    "⚡ Outbid Alert: " + vehicleTitle,
+                    "Another dealer placed a higher bid of ₹" + String.format("%,.0f", amount) + " on " + vehicleTitle + ". Outbid now to reclaim highest bidder status!",
+                    "OUTBID"
+            );
+        }
 
         // 9. Fetch updated bid history and broadcast
         List<BidResponseDTO> history = getBidHistory(inspectionId);
@@ -146,9 +185,11 @@ public class BiddingServiceImpl implements BiddingService {
                     Vehicle v = ins.getVehicle();
                     
                     String statusStr = v != null ? v.getVehicleStatus() : "N/A";
-                    String auctionStr = "live";
-                    if ("SOLD OUT".equalsIgnoreCase(statusStr) || "SOLD".equalsIgnoreCase(statusStr) || "ENDED".equalsIgnoreCase(statusStr)) {
-                        auctionStr = "completed";
+                    String auctionStr = "completed";
+                    if ("LIVE".equalsIgnoreCase(statusStr)) {
+                        auctionStr = "live";
+                    } else if ("UPCOMING".equalsIgnoreCase(statusStr) || "READY_FOR_AUCTION".equalsIgnoreCase(statusStr) || "PENDING".equalsIgnoreCase(statusStr)) {
+                        auctionStr = "scheduled";
                     }
 
                     return DealerBidResponseDTO.builder()
@@ -169,19 +210,23 @@ public class BiddingServiceImpl implements BiddingService {
     }
 
     private String formatTime(LocalDateTime time) {
-        java.time.Duration duration = java.time.Duration.between(time, LocalDateTime.now());
-        long seconds = duration.getSeconds();
-        if (seconds < 60) {
+        if (time == null) {
             return "Just now";
+        }
+        java.time.Duration duration = java.time.Duration.between(time, LocalDateTime.now());
+        long seconds = Math.abs(duration.getSeconds());
+        String clockTime = time.format(java.time.format.DateTimeFormatter.ofPattern("hh:mm:ss a"));
+        if (seconds < 10) {
+            return "Just now (" + clockTime + ")";
         }
         long minutes = duration.toMinutes();
         if (minutes < 60) {
-            return minutes + " min ago";
+            return (minutes == 0 ? "1 min ago" : minutes + " min ago") + " (" + clockTime + ")";
         }
         long hours = duration.toHours();
         if (hours < 24) {
-            return hours + " h ago";
+            return hours + " h ago (" + clockTime + ")";
         }
-        return time.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm"));
+        return time.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a"));
     }
 }

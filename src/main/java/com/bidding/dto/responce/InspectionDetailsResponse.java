@@ -62,8 +62,15 @@ public class InspectionDetailsResponse {
         private Double suggestedPrice;
         private Double currentHighestBid;
         private String currentHighestBidder;
+        private Long currentHighestBidderId;
+        private String currentHighestBidderEmail;
         private Long auctionEndTime;
         private Integer totalBids;
+        private Boolean sellerAgreed;
+        private Double sellerCounterPrice;
+        private String sellerMessage;
+        private String adminDealerMessage;
+        private String dealerReplyMessage;
     }
 
     @Data

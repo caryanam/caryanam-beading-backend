@@ -43,6 +43,7 @@ public class InspectionServiceImpl implements InspectionService {
     private final WishlistRepository wishlistRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuctionWebSocketHandler webSocketHandler;
+    private final com.bidding.service.NotificationService notificationService;
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url}")
     private String baseUrl;
@@ -424,6 +425,11 @@ public class InspectionServiceImpl implements InspectionService {
                             .currentHighestBidder((v != null && v.getCurrentHighestBidder() != null) ? v.getCurrentHighestBidder().getDealershipName() : null)
                             .auctionEndTime((v != null && v.getAuctionEndTime() != null) ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
                             .totalBids(v != null ? v.getTotalBids() : null)
+                            .sellerAgreed(v != null ? v.getSellerAgreed() : null)
+                            .sellerCounterPrice(v != null ? v.getSellerCounterPrice() : null)
+                            .sellerMessage(v != null ? v.getSellerMessage() : null)
+                            .adminDealerMessage(v != null ? v.getAdminDealerMessage() : null)
+                            .dealerReplyMessage(v != null ? v.getDealerReplyMessage() : null)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -685,7 +691,10 @@ public class InspectionServiceImpl implements InspectionService {
 
         List<BidResponseDTO> bids = bidRepository.findByInspectionIdOrderByAmountDesc(ins.getId()).stream()
                 .map(b -> BidResponseDTO.builder()
-                        .dealer(b.getDealer().getDealershipName())
+                        .dealer(maskDealerName(b.getDealer() != null && b.getDealer().getDealershipName() != null ? b.getDealer().getDealershipName() : (b.getDealer() != null ? b.getDealer().getOwnerName() : "Dealer")))
+                        .dealerId(b.getDealer() != null ? b.getDealer().getId() : null)
+                        .dealerEmail(b.getDealer() != null ? b.getDealer().getEmail() : null)
+                        .dealerName(b.getDealer() != null ? b.getDealer().getDealershipName() : null)
                         .amount(b.getAmount())
                         .time(formatTime(b.getCreatedAt()))
                         .build())
@@ -720,8 +729,15 @@ public class InspectionServiceImpl implements InspectionService {
                         .suggestedPrice(v.getSuggestedPrice())
                         .currentHighestBid(v.getCurrentHighestBid())
                         .currentHighestBidder(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getDealershipName() : null)
+                        .currentHighestBidderId(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getId() : null)
+                        .currentHighestBidderEmail(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getEmail() : null)
                         .auctionEndTime(v.getAuctionEndTime() != null ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
                         .totalBids(v.getTotalBids())
+                        .sellerAgreed(v.getSellerAgreed())
+                        .sellerCounterPrice(v.getSellerCounterPrice())
+                        .sellerMessage(v.getSellerMessage())
+                        .adminDealerMessage(v.getAdminDealerMessage())
+                        .dealerReplyMessage(v.getDealerReplyMessage())
                         .build())
                 .exteriorPanelDetails(panels.stream().map(p -> {
                     String panelImg = p.getImageUrl();
@@ -1114,7 +1130,7 @@ public class InspectionServiceImpl implements InspectionService {
 
         Vehicle v = ins.getVehicle();
         if (v != null) {
-            v.setVehicleStatus("SOLD OUT");
+            v.setVehicleStatus("ENDED");
             v.setAuctionEndTime(LocalDateTime.now());
             v = vehicleRepository.save(v);
 
@@ -1130,21 +1146,179 @@ public class InspectionServiceImpl implements InspectionService {
         }
     }
 
+    @Override
+    @Transactional
+    public void submitSellerResponse(Long id, Boolean agreed, Double counterPrice, String message) {
+        Inspection ins = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+        Vehicle v = ins.getVehicle();
+        if (v != null) {
+            v.setSellerAgreed(agreed);
+            v.setSellerCounterPrice(counterPrice);
+            v.setSellerMessage(message);
+            vehicleRepository.save(v);
+
+            String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ₹" + String.format("%,.0f", counterPrice) : "Rejected bid");
+            notificationService.createNotification(
+                    "ADMIN",
+                    null,
+                    id,
+                    "💬 Seller Decision: " + vehicleTitle,
+                    "Seller responded: " + desc + (message != null && !message.isEmpty() ? " ('" + message + "')" : ""),
+                    "SELLER_RESPONSE"
+            );
+
+            Map<String, Object> wsMessage = new HashMap<>();
+            wsMessage.put("type", "SELLER_RESPONSE");
+            wsMessage.put("inspectionId", id);
+            wsMessage.put("sellerAgreed", agreed);
+            wsMessage.put("sellerCounterPrice", counterPrice);
+            wsMessage.put("sellerMessage", message);
+            webSocketHandler.broadcast(id, wsMessage);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void submitAdminDealerMessage(Long id, String message) {
+        Inspection ins = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+        Vehicle v = ins.getVehicle();
+        if (v != null) {
+            v.setAdminDealerMessage(message);
+            vehicleRepository.save(v);
+
+            String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            if (v.getCurrentHighestBidder() != null) {
+                notificationService.createNotification(
+                        "DEALER",
+                        v.getCurrentHighestBidder().getEmail(),
+                        id,
+                        "💬 Admin Negotiation Message: " + vehicleTitle,
+                        "Admin sent message regarding " + vehicleTitle + ": '" + message + "'",
+                        "ADMIN_MESSAGE"
+                );
+            }
+
+            Map<String, Object> wsMessage = new HashMap<>();
+            wsMessage.put("type", "ADMIN_DEALER_MESSAGE");
+            wsMessage.put("inspectionId", id);
+            wsMessage.put("adminDealerMessage", message);
+            webSocketHandler.broadcast(id, wsMessage);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void submitDealerReply(Long id, String reply) {
+        Inspection ins = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+        Vehicle v = ins.getVehicle();
+        if (v != null) {
+            v.setDealerReplyMessage(reply);
+            vehicleRepository.save(v);
+
+            String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            String dealerName = v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getDealershipName() : "Dealer";
+            notificationService.createNotification(
+                    "ADMIN",
+                    null,
+                    id,
+                    "✉️ Dealer Reply Received: " + vehicleTitle,
+                    "Dealer " + dealerName + " replied for " + vehicleTitle + ": '" + reply + "'",
+                    "DEALER_REPLY"
+            );
+
+            Map<String, Object> wsMessage = new HashMap<>();
+            wsMessage.put("type", "DEALER_REPLY");
+            wsMessage.put("inspectionId", id);
+            wsMessage.put("dealerReplyMessage", reply);
+            webSocketHandler.broadcast(id, wsMessage);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void updateVehicleStatus(Long id, String vehicleStatus) {
+        Inspection ins = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+        Vehicle v = ins.getVehicle();
+        if (v != null) {
+            v.setVehicleStatus(vehicleStatus);
+            if ("SOLD OUT".equalsIgnoreCase(vehicleStatus) || "SOLD".equalsIgnoreCase(vehicleStatus)) {
+                if (v.getCurrentHighestBidder() == null) {
+                    com.bidding.entity.Bid topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(id).orElse(null);
+                    if (topBid != null && topBid.getDealer() != null) {
+                        v.setCurrentHighestBidder(topBid.getDealer());
+                        if (v.getCurrentHighestBid() == null || v.getCurrentHighestBid() == 0.0) {
+                            v.setCurrentHighestBid(topBid.getAmount());
+                        }
+                    }
+                }
+            }
+            vehicleRepository.save(v);
+
+            String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+
+            // Create notification for winning dealer and admin
+            if ("SOLD OUT".equalsIgnoreCase(vehicleStatus) || "SOLD".equalsIgnoreCase(vehicleStatus)) {
+                if (v.getCurrentHighestBidder() != null) {
+                    notificationService.createNotification(
+                            "DEALER",
+                            v.getCurrentHighestBidder().getEmail(),
+                            id,
+                            "🏆 Auction Won: " + vehicleTitle,
+                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for ₹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
+                            "AUCTION_WON"
+                    );
+                }
+                notificationService.createNotification(
+                        "ADMIN",
+                        null,
+                        id,
+                        "🏁 Vehicle Marked SOLD OUT: " + vehicleTitle,
+                        "Vehicle " + vehicleTitle + " has been marked SOLD OUT.",
+                        "STATUS_UPDATE"
+                );
+            } else if ("LIVE".equalsIgnoreCase(vehicleStatus)) {
+                notificationService.createNotification(
+                        "ALL_DEALERS",
+                        null,
+                        id,
+                        "🔥 Live Auction Started: " + vehicleTitle,
+                        "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
+                        "AUCTION_LIVE"
+                );
+            }
+
+            Map<String, Object> wsMessage = new HashMap<>();
+            wsMessage.put("type", "VEHICLE_STATUS_UPDATE");
+            wsMessage.put("inspectionId", id);
+            wsMessage.put("vehicleStatus", vehicleStatus);
+            webSocketHandler.broadcast(id, wsMessage);
+        }
+    }
+
     private String formatTime(LocalDateTime time) {
-        java.time.Duration duration = java.time.Duration.between(time, LocalDateTime.now());
-        long seconds = duration.getSeconds();
-        if (seconds < 60) {
+        if (time == null) {
             return "Just now";
+        }
+        java.time.Duration duration = java.time.Duration.between(time, LocalDateTime.now());
+        long seconds = Math.abs(duration.getSeconds());
+        String clockTime = time.format(java.time.format.DateTimeFormatter.ofPattern("hh:mm:ss a"));
+        if (seconds < 10) {
+            return "Just now (" + clockTime + ")";
         }
         long minutes = duration.toMinutes();
         if (minutes < 60) {
-            return minutes + " min ago";
+            return (minutes == 0 ? "1 min ago" : minutes + " min ago") + " (" + clockTime + ")";
         }
         long hours = duration.toHours();
         if (hours < 24) {
-            return hours + " h ago";
+            return hours + " h ago (" + clockTime + ")";
         }
-        return time.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm"));
+        return time.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a"));
     }
 
     @Override
@@ -1225,5 +1399,16 @@ public class InspectionServiceImpl implements InspectionService {
             default:
                 return "";
         }
+    }
+
+    private String maskDealerName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return "Dealer";
+        }
+        String trimmed = name.trim();
+        if (trimmed.length() <= 2) {
+            return trimmed + "****";
+        }
+        return trimmed.substring(0, 2) + "****";
     }
 }

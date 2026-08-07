@@ -208,6 +208,7 @@ public class AuthServiceImpl implements AuthService {
             return AuthResponse.builder()
                     .id(dealer.getId())
                     .fullName(dealer.getOwnerName())
+                    .dealershipName(dealer.getDealershipName())
                     .email(dealer.getEmail())
                     .mobileNumber(dealer.getMobileNumber())
                     .role(dealer.getRole())

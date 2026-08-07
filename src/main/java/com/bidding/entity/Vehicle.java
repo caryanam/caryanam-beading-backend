@@ -72,4 +72,19 @@ public class Vehicle {
 
     @Column(name = "total_bids")
     private Integer totalBids;
+
+    @Column(name = "seller_agreed")
+    private Boolean sellerAgreed;
+
+    @Column(name = "seller_counter_price")
+    private Double sellerCounterPrice;
+
+    @Column(name = "seller_message", length = 1000)
+    private String sellerMessage;
+
+    @Column(name = "admin_dealer_message", length = 1000)
+    private String adminDealerMessage;
+
+    @Column(name = "dealer_reply_message", length = 1000)
+    private String dealerReplyMessage;
 }

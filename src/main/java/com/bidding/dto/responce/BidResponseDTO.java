@@ -8,6 +8,9 @@ import lombok.*;
 @Builder
 public class BidResponseDTO {
     private String dealer;
+    private Long dealerId;
+    private String dealerEmail;
+    private String dealerName;
     private Double amount;
     private String time;
 }

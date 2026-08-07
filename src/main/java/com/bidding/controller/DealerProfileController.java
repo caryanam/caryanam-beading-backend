@@ -25,11 +25,41 @@ public class DealerProfileController {
 
     private final DealerRepository dealerRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.bidding.repo.VehicleRepository vehicleRepository;
+    private final com.bidding.repo.BidRepository bidRepository;
 
     @GetMapping
     @Operation(summary = "Get dealer profile")
     public ResponseEntity<ApiResponse<DealerResponseDTO>> getProfile(@AuthenticationPrincipal UserDetails userDetails) {
         Dealer dealer = getDealer(userDetails);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+        java.util.List<com.bidding.dto.responce.DealerWonBidDTO> wonBids = vehicleRepository.findAll().stream()
+                .filter(v -> {
+                    if (v.getCurrentHighestBidder() == null || !v.getCurrentHighestBidder().getId().equals(dealer.getId())) {
+                        return false;
+                    }
+                    String status = v.getVehicleStatus();
+                    if (status == null) return false;
+                    if ("LIVE".equalsIgnoreCase(status) && (v.getAuctionEndTime() == null || now.isBefore(v.getAuctionEndTime()))) {
+                        return false;
+                    }
+                    if ("READY_FOR_AUCTION".equalsIgnoreCase(status) || "UPCOMING".equalsIgnoreCase(status) || "PENDING".equalsIgnoreCase(status)) {
+                        return false;
+                    }
+                    return true;
+                })
+                .map(v -> com.bidding.dto.responce.DealerWonBidDTO.builder()
+                        .vehicleId(v.getId())
+                        .vehicleNumber(v.getVehicleNumber())
+                        .brand(v.getBrand())
+                        .model(v.getModel())
+                        .variant(v.getVariant())
+                        .winningBidAmount(v.getCurrentHighestBid())
+                        .status(v.getVehicleStatus())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+
         DealerResponseDTO dto = DealerResponseDTO.builder()
                 .id(dealer.getId())
                 .dealershipName(dealer.getDealershipName())
@@ -40,6 +70,9 @@ public class DealerProfileController {
                 .area(dealer.getArea())
                 .city(dealer.getCity())
                 .role(dealer.getRole())
+                .totalBids(bidRepository.countByDealerId(dealer.getId()))
+                .wonBidsCount((long) wonBids.size())
+                .wonBids(wonBids)
                 .build();
 
         return ResponseEntity.ok(ApiResponse.<DealerResponseDTO>builder()

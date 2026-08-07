@@ -27,6 +27,18 @@ public class AdminInspectionController {
 
     private final InspectionService inspectionService;
     private final BiddingService biddingService;
+    private final com.bidding.service.NotificationService notificationService;
+
+    @GetMapping("/api/admin/notifications")
+    @Operation(summary = "Get notifications for admin")
+    public ResponseEntity<ApiResponse<List<com.bidding.dto.responce.NotificationDTO>>> getAdminNotifications() {
+        List<com.bidding.dto.responce.NotificationDTO> list = notificationService.getAdminNotifications();
+        return ResponseEntity.ok(ApiResponse.<List<com.bidding.dto.responce.NotificationDTO>>builder()
+                .success(true)
+                .message("Admin notifications retrieved successfully.")
+                .data(list)
+                .build());
+    }
 
     @GetMapping("/api/admin/inspections")
     @Operation(summary = "Get list of all submitted vehicle inspections")
@@ -178,14 +190,29 @@ public class AdminInspectionController {
                 .build());
     }
 
-    @GetMapping("/api/admin/inspection/{id}/pdf")
-    @Operation(summary = "Download vehicle inspection report PDF (Admin)")
-    public ResponseEntity<byte[]> downloadPdfAdmin(@PathVariable Long id) {
-        byte[] pdfBytes = inspectionService.generatePdfReport(id);
-        
-        return ResponseEntity.ok()
-                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"inspection_report_" + id + ".pdf\"")
-                .body(pdfBytes);
+    @PostMapping("/api/admin/inspection/{id}/dealer-message")
+    @Operation(summary = "Send negotiation message to winning dealer (Admin)")
+    public ResponseEntity<ApiResponse<Void>> sendDealerMessage(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String message = body.get("message");
+        inspectionService.submitAdminDealerMessage(id, message);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Message sent to winning dealer successfully.")
+                .build());
+    }
+
+    @PutMapping("/api/admin/inspection/{id}/vehicle-status")
+    @Operation(summary = "Manually update vehicle status (e.g. SOLD OUT)")
+    public ResponseEntity<ApiResponse<Void>> updateVehicleStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String vehicleStatus = body.get("vehicleStatus");
+        inspectionService.updateVehicleStatus(id, vehicleStatus);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Vehicle status updated successfully.")
+                .build());
     }
 }

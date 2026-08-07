@@ -50,4 +50,12 @@ public interface InspectionService {
     void stopAuction(Long id);
 
     void importDealers(org.springframework.web.multipart.MultipartFile file);
+
+    void submitSellerResponse(Long id, Boolean agreed, Double counterPrice, String message);
+
+    void submitAdminDealerMessage(Long id, String message);
+
+    void submitDealerReply(Long id, String reply);
+
+    void updateVehicleStatus(Long id, String vehicleStatus);
 }

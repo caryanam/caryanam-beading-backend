@@ -27,6 +27,18 @@ public class DealerController {
 
     private final InspectionService inspectionService;
     private final BiddingService biddingService;
+    private final com.bidding.service.NotificationService notificationService;
+
+    @GetMapping("/notifications")
+    @Operation(summary = "Get notifications for logged-in dealer")
+    public ResponseEntity<ApiResponse<List<com.bidding.dto.responce.NotificationDTO>>> getDealerNotifications(Principal principal) {
+        List<com.bidding.dto.responce.NotificationDTO> list = notificationService.getDealerNotifications(principal.getName());
+        return ResponseEntity.ok(ApiResponse.<List<com.bidding.dto.responce.NotificationDTO>>builder()
+                .success(true)
+                .message("Dealer notifications retrieved successfully.")
+                .data(list)
+                .build());
+    }
 
     @GetMapping("/inspections")
     @Operation(summary = "Get list of all approved inspections for dealer marketplace")
@@ -86,13 +98,38 @@ public class DealerController {
     }
 
     @GetMapping("/bids")
-    @Operation(summary = "Get bid history of the logged-in dealer")
-    public ResponseEntity<ApiResponse<List<DealerBidResponseDTO>>> getDealerBids(Principal principal) {
-        List<DealerBidResponseDTO> bids = biddingService.getDealerBidHistory(principal.getName());
+    @Operation(summary = "Get bid history for logged-in dealer")
+    public ResponseEntity<ApiResponse<List<DealerBidResponseDTO>>> getDealerBidHistory(Principal principal) {
+        List<DealerBidResponseDTO> history = biddingService.getDealerBidHistory(principal.getName());
         return ResponseEntity.ok(ApiResponse.<List<DealerBidResponseDTO>>builder()
                 .success(true)
-                .message("Dealer bids history retrieved successfully.")
-                .data(bids)
+                .message("Dealer bid history retrieved successfully.")
+                .data(history)
+                .build());
+    }
+
+    @PostMapping("/inspection/{id}/seller-response")
+    @Operation(summary = "Submit seller confirmation response (Agreed / Counter offer)")
+    public ResponseEntity<ApiResponse<Void>> submitSellerResponse(
+            @PathVariable Long id,
+            @RequestBody com.bidding.dto.request.SellerResponseRequest request) {
+        inspectionService.submitSellerResponse(id, request.getAgreed(), request.getCounterPrice(), request.getMessage());
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Seller response submitted successfully.")
+                .build());
+    }
+
+    @PostMapping("/inspection/{id}/reply")
+    @Operation(summary = "Submit dealer reply to admin negotiation message")
+    public ResponseEntity<ApiResponse<Void>> submitDealerReply(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String reply = body.get("reply");
+        inspectionService.submitDealerReply(id, reply);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Dealer reply submitted successfully.")
                 .build());
     }
 }

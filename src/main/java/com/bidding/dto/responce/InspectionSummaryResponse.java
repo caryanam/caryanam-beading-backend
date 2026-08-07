@@ -33,4 +33,9 @@ public class InspectionSummaryResponse {
     private String currentHighestBidder;
     private Long auctionEndTime;
     private Integer totalBids;
+    private Boolean sellerAgreed;
+    private Double sellerCounterPrice;
+    private String sellerMessage;
+    private String adminDealerMessage;
+    private String dealerReplyMessage;
 }

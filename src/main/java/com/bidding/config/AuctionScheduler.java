@@ -41,8 +41,8 @@ public class AuctionScheduler {
             if (v.getAuctionEndTime() != null && now.isAfter(v.getAuctionEndTime())) {
                 log.info("Auction expired for inspectionId: {}. Ending auction...", ins.getId());
 
-                // Set status to SOLD OUT
-                v.setVehicleStatus("SOLD OUT");
+                // Set status to ENDED
+                v.setVehicleStatus("ENDED");
                 vehicleRepository.save(v);
 
                 // Broadcast expiration
