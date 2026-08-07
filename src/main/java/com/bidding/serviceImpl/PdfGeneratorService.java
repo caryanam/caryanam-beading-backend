@@ -444,7 +444,7 @@ public class PdfGeneratorService {
                     .id(v.getId())
                     .vehicleNumber(v.getVehicleNumber())
                     .ownerName(v.getOwnerName())
-                    .customerName(v.getOwnerName())
+                    .customerName(v.getCustomerName())
                     .customerMobileNumber(v.getCustomerMobileNumber())
                     .brand(v.getBrand())
                     .model(v.getModel())

@@ -99,7 +99,7 @@ public class InspectionServiceImpl implements InspectionService {
         if (request.getVehicleDetails() != null) {
             InspectionDraftRequest.VehicleDraftDTO vDto = request.getVehicleDetails();
             if (vDto.getOwnerName() != null) vehicle.setOwnerName(vDto.getOwnerName());
-            if (vDto.getCustomerName() != null) vehicle.setOwnerName(vDto.getCustomerName());
+            if (vDto.getCustomerName() != null) vehicle.setCustomerName(vDto.getCustomerName());
             if (vDto.getCustomerMobileNumber() != null) vehicle.setCustomerMobileNumber(vDto.getCustomerMobileNumber());
             if (vDto.getBrand() != null) vehicle.setBrand(vDto.getBrand());
             if (vDto.getModel() != null) vehicle.setModel(vDto.getModel());
@@ -704,7 +704,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .id(v.getId())
                         .vehicleNumber(v.getVehicleNumber())
                         .ownerName(v.getOwnerName())
-                        .customerName(v.getOwnerName())
+                        .customerName(v.getCustomerName())
                         .customerMobileNumber(v.getCustomerMobileNumber())
                         .brand(v.getBrand())
                         .model(v.getModel())
