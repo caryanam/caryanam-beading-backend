@@ -23,9 +23,7 @@ public enum PhotoType {
     // Interior
     ODOMETER_IMAGE,
     DASHBOARD_IMAGE,
-    AC_CONTROL_IMAGE,
-    INSTRUMENT_CLUSTER_IMAGE,
-    MUSIC_SYSTEM_IMAGE;
+    AC_CONTROL_IMAGE;
 
     public String getDisplayName() {
         String[] words = this.name().split("_");

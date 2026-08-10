@@ -311,8 +311,6 @@ public class PdfGeneratorService {
 
             addDiagnosticRow(cabinPhotosTable, "ODOMETER READING PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "ODOMETER_IMAGE"));
             addDiagnosticRow(cabinPhotosTable, "AC CONTROL PANEL PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "AC_CONTROL_IMAGE"));
-            addDiagnosticRow(cabinPhotosTable, "INSTRUMENT CLUSTER PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "INSTRUMENT_CLUSTER_IMAGE"));
-            addDiagnosticRow(cabinPhotosTable, "MUSIC SYSTEM PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "MUSIC_SYSTEM_IMAGE"));
             document.add(cabinPhotosTable);
 
             // 8. General Remarks & Report Status
@@ -366,13 +364,25 @@ public class PdfGeneratorService {
                 imgCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
                 if (imgUrl != null && !imgUrl.isEmpty()) {
-                    Image pdfImg = createPdfImage(imgUrl, 75, 50);
-                    if (pdfImg != null) {
-                        imgCell.addElement(pdfImg);
+                    boolean isVideo = imgUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
+                            || imgUrl.toLowerCase().contains("video")
+                            || pt.name().contains("ENGINE_NOISE")
+                            || pt.getDisplayName().equalsIgnoreCase("Engine / Motor Noise");
+
+                    if (isVideo) {
+                        Font videoFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.0f, Font.BOLD, new Color(79, 70, 229));
+                        Paragraph videoText = new Paragraph("[VIDEO ATTACHED]", videoFont);
+                        videoText.setAlignment(Element.ALIGN_CENTER);
+                        imgCell.addElement(videoText);
                     } else {
-                        Paragraph noPhoto = new Paragraph("No Image", valueFont);
-                        noPhoto.setAlignment(Element.ALIGN_CENTER);
-                        imgCell.addElement(noPhoto);
+                        Image pdfImg = createPdfImage(imgUrl, 75, 50);
+                        if (pdfImg != null) {
+                            imgCell.addElement(pdfImg);
+                        } else {
+                            Paragraph noPhoto = new Paragraph("No Image", valueFont);
+                            noPhoto.setAlignment(Element.ALIGN_CENTER);
+                            imgCell.addElement(noPhoto);
+                        }
                     }
                 } else {
                     Paragraph pendingPara = new Paragraph("-", valueFont);
@@ -630,13 +640,23 @@ public class PdfGeneratorService {
         imgCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
         if (imageUrl != null && !imageUrl.trim().isEmpty()) {
-            Image pdfImg = createPdfImage(imageUrl, 60, 40);
-            if (pdfImg != null) {
-                imgCell.addElement(pdfImg);
+            boolean isVideo = imageUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
+                    || imageUrl.toLowerCase().contains("video")
+                    || "Engine / Motor Noise".equalsIgnoreCase(name);
+            if (isVideo) {
+                Font videoFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.0f, Font.BOLD, new Color(79, 70, 229));
+                Paragraph videoText = new Paragraph("[VIDEO ATTACHED]", videoFont);
+                videoText.setAlignment(Element.ALIGN_CENTER);
+                imgCell.addElement(videoText);
             } else {
-                Paragraph noPhoto = new Paragraph("-", valueFont);
-                noPhoto.setAlignment(Element.ALIGN_CENTER);
-                imgCell.addElement(noPhoto);
+                Image pdfImg = createPdfImage(imageUrl, 60, 40);
+                if (pdfImg != null) {
+                    imgCell.addElement(pdfImg);
+                } else {
+                    Paragraph noPhoto = new Paragraph("-", valueFont);
+                    noPhoto.setAlignment(Element.ALIGN_CENTER);
+                    imgCell.addElement(noPhoto);
+                }
             }
         } else {
             Paragraph noPhoto = new Paragraph("-", valueFont);
@@ -677,11 +697,21 @@ public class PdfGeneratorService {
         photoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
         if (imageUrl != null && !imageUrl.trim().isEmpty()) {
-            Image pdfImg = createPdfImage(imageUrl, 55, 36);
-            if (pdfImg != null) {
-                photoCell.addElement(pdfImg);
+            boolean isVideo = imageUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
+                    || imageUrl.toLowerCase().contains("video")
+                    || "Engine / Motor Noise".equalsIgnoreCase(name);
+            if (isVideo) {
+                Font videoFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.0f, Font.BOLD, new Color(79, 70, 229));
+                Paragraph videoText = new Paragraph("[VIDEO ATTACHED]", videoFont);
+                videoText.setAlignment(Element.ALIGN_CENTER);
+                photoCell.addElement(videoText);
             } else {
-                photoCell.addElement(new Phrase("-", valueFont));
+                Image pdfImg = createPdfImage(imageUrl, 55, 36);
+                if (pdfImg != null) {
+                    photoCell.addElement(pdfImg);
+                } else {
+                    photoCell.addElement(new Phrase("-", valueFont));
+                }
             }
         } else {
             photoCell.addElement(new Phrase("-", valueFont));
@@ -827,6 +857,10 @@ public class PdfGeneratorService {
 
     private Image createPdfImage(String imageUrl, float fitWidth, float fitHeight) {
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            return null;
+        }
+        String lowerUrl = imageUrl.toLowerCase();
+        if (lowerUrl.matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)") || lowerUrl.contains("video")) {
             return null;
         }
         try {

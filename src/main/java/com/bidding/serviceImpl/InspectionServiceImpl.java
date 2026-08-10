@@ -565,8 +565,6 @@ public class InspectionServiceImpl implements InspectionService {
         if (pt == PhotoType.ODOMETER_IMAGE && (cleanCat.equals("ODOMETER") || cleanCat.equals("ODOMETERIMAGE") || cleanCat.equals("ODOMETERIMG") || cleanCat.contains("ODOMETER"))) return true;
         if (pt == PhotoType.DASHBOARD_IMAGE && (cleanCat.equals("DASHBOARD") || cleanCat.equals("DASHBOARDIMAGE") || cleanCat.equals("INTERIOR"))) return true;
         if (pt == PhotoType.AC_CONTROL_IMAGE && (cleanCat.contains("AC") || cleanCat.equals("ACCONTROL") || cleanCat.equals("ACCONTROLIMAGE") || cleanCat.equals("ACIMG"))) return true;
-        if (pt == PhotoType.INSTRUMENT_CLUSTER_IMAGE && (cleanCat.contains("CLUSTER") || cleanCat.equals("INSTRUMENTCLUSTER") || cleanCat.equals("INSTRUMENTCLUSTERIMAGE") || cleanCat.equals("CLUSTERIMG"))) return true;
-        if (pt == PhotoType.MUSIC_SYSTEM_IMAGE && (cleanCat.contains("MUSIC") || cleanCat.contains("INFOTAINMENT") || cleanCat.equals("MUSICSYSTEM") || cleanCat.equals("MUSICSYSTEMIMAGE") || cleanCat.equals("MUSICSYSTEMIMG"))) return true;
         
         return false;
     }

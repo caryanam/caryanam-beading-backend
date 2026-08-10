@@ -12,7 +12,9 @@ import com.bidding.dto.responce.BidResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -214,5 +216,16 @@ public class AdminInspectionController {
                 .success(true)
                 .message("Vehicle status updated successfully.")
                 .build());
+    }
+
+    @GetMapping("/api/admin/inspection/{id}/pdf")
+    @Operation(summary = "Download inspection summary report PDF (Admin)")
+    public ResponseEntity<byte[]> downloadPdfAdmin(@PathVariable Long id) {
+        byte[] pdfBytes = inspectionService.generatePdfReport(id);
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"inspection_report_" + id + ".pdf\"")
+                .body(pdfBytes);
     }
 }
