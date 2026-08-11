@@ -1312,7 +1312,8 @@ public class InspectionServiceImpl implements InspectionService {
         if (time == null) {
             return "Just now";
         }
-        java.time.Duration duration = java.time.Duration.between(time, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
+        java.time.Duration duration = java.time.Duration.between(time, now);
         long seconds = Math.abs(duration.getSeconds());
         String clockTime = time.format(java.time.format.DateTimeFormatter.ofPattern("hh:mm:ss a"));
         if (seconds < 10) {
@@ -1320,14 +1321,16 @@ public class InspectionServiceImpl implements InspectionService {
         }
         long minutes = duration.toMinutes();
         if (minutes < 60) {
-            return (minutes == 0 ? "1 min ago" : minutes + " min ago") + " (" + clockTime + ")";
+            return (minutes <= 1 ? "1 min ago" : minutes + " min ago") + " (" + clockTime + ")";
         }
         long hours = duration.toHours();
         if (hours < 24) {
             return hours + " h ago (" + clockTime + ")";
         }
-        return time.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a"));
+        return time.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm:ss a"));
     }
+
+
 
     @Override
     @Transactional

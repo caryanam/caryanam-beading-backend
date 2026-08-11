@@ -7,6 +7,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @org.springframework.scheduling.annotation.EnableScheduling
 public class CaryanamBiddingApplication {
 
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+    }
+
     public static void main(String[] args) {
         SpringApplication.run(CaryanamBiddingApplication.class, args);
 

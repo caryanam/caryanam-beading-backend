@@ -61,7 +61,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private NotificationDTO mapToDTO(Notification n) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+        String formattedTime = "Recently";
+        if (n.getCreatedAt() != null) {
+            java.time.ZonedDateTime istTime = n.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata"));
+            formattedTime = istTime.format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm:ss a"));
+        }
         return NotificationDTO.builder()
                 .id(n.getId())
                 .inspectionId(n.getInspectionId())
@@ -71,7 +75,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .message(n.getMessage())
                 .type(n.getType())
                 .isRead(n.getIsRead())
-                .createdAt(n.getCreatedAt() != null ? n.getCreatedAt().format(formatter) : "Recently")
+                .createdAt(formattedTime)
                 .build();
     }
+
 }
