@@ -917,7 +917,7 @@ public class PdfGeneratorService {
             // 4. Remote HTTP URL stream fallback
             String targetUrl = imageUrl;
             if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
-                targetUrl = "http://localhost:8080" + (targetUrl.startsWith("/") ? targetUrl : "/" + targetUrl);
+                targetUrl = "https://api.caryanamlive.com/" + (targetUrl.startsWith("/") ? targetUrl : "/" + targetUrl);
             }
 
             try {

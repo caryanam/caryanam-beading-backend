@@ -16,9 +16,11 @@ public class CaryanamBiddingApplication {
               ====================================================
 
              Application : CARYANAM BIDDING
-             Server      : http://localhost:8080
-             Swagger UI  : http://localhost:8080/swagger-ui/index.html
-             Swagger UI  : http://localhost:8080/swagger-ui/index.html
+             Server      : http://localhost:8088
+             Swagger UI  : http://localhost:8088/swagger-ui/index.html
+             Swagger UI  : http://localhost:8088/swagger-ui/index.html
+
+
 
              ====================================================
              """);
@@ -26,3 +28,5 @@ public class CaryanamBiddingApplication {
     }
 
 }
+
+
