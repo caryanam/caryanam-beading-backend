@@ -140,7 +140,7 @@ public class InspectorInspectionController {
         
         Inspector inspector = getInspector(userDetails);
         
-        // Create directory if not exists
+        // Create directory if not exists on disk
         String targetDir = uploadDir + "/" + carImageFolder;
         File uploadFolder = new File(targetDir);
         if (!uploadFolder.exists()) {
@@ -159,7 +159,7 @@ public class InspectorInspectionController {
         // Copy file to disk
         Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-        // Construct serving URL
+        // Construct serving URL using configured baseUrl (https://api.caryanamlive.com)
         String fileUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + uniqueFilename;
 
         inspectionService.uploadInspectionImage(inspectionId, category, originalFilename, fileUrl, inspector.getId());

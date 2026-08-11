@@ -57,6 +57,48 @@ public class InspectionServiceImpl implements InspectionService {
     @org.springframework.beans.factory.annotation.Value("${app.car-video-folder}")
     private String carVideoFolder;
 
+    public String cleanRelativePath(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return null;
+        }
+        String clean = url.trim();
+
+        if (clean.startsWith("http://") || clean.startsWith("https://")) {
+            int uploadsIdx = clean.indexOf("/uploads/");
+            if (uploadsIdx != -1) {
+                return clean.substring(uploadsIdx);
+            }
+            int apiIdx = clean.indexOf("/api/");
+            if (apiIdx != -1) {
+                return clean.substring(apiIdx);
+            }
+            int slashIdx = clean.indexOf('/', 8);
+            if (slashIdx != -1) {
+                return clean.substring(slashIdx);
+            }
+        }
+
+        if (!clean.startsWith("/")) {
+            return "/" + clean;
+        }
+        return clean;
+    }
+
+    public String buildFullImageUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.trim().isEmpty()) {
+            return null;
+        }
+        String relativePath = cleanRelativePath(rawUrl);
+        if (relativePath == null) {
+            return null;
+        }
+        if (relativePath.startsWith("/api/inspector/inspection/image/")) {
+            String filename = relativePath.substring(relativePath.lastIndexOf("/") + 1);
+            return baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
+        }
+        return baseUrl + relativePath;
+    }
+
     @Override
     @Transactional
     public InspectionDetailsResponse saveDraft(InspectionDraftRequest request, Long inspectorId) {
@@ -133,7 +175,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .inspection(inspection)
                             .panelName(pDto.getPanelName())
                             .condition(pDto.getCondition())
-                            .imageUrl(pDto.getImageUrl())
+                            .imageUrl(cleanRelativePath(pDto.getImageUrl()))
                             .build();
                     inspectionPanelRepository.save(panel);
                 }
@@ -401,7 +443,7 @@ public class InspectionServiceImpl implements InspectionService {
                 .map(ins -> {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
-                    String imgUrl = (images != null && !images.isEmpty()) ? images.get(0).getImageUrl() : null;
+                    String imgUrl = (images != null && !images.isEmpty()) ? buildFullImageUrl(images.get(0).getImageUrl()) : null;
                     return InspectionSummaryResponse.builder()
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
@@ -442,7 +484,7 @@ public class InspectionServiceImpl implements InspectionService {
                 .map(ins -> {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
-                    String imgUrl = (images != null && !images.isEmpty()) ? images.get(0).getImageUrl() : null;
+                    String imgUrl = (images != null && !images.isEmpty()) ? buildFullImageUrl(images.get(0).getImageUrl()) : null;
                     return InspectionSummaryResponse.builder()
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
@@ -528,7 +570,7 @@ public class InspectionServiceImpl implements InspectionService {
         InspectionImage image = InspectionImage.builder()
                 .inspection(inspection)
                 .imageCategory(category)
-                .imageUrl(fileUrl)
+                .imageUrl(cleanRelativePath(fileUrl))
                 .originalName(originalName)
                 .inspector(inspector)
                 .build();
@@ -593,17 +635,7 @@ public class InspectionServiceImpl implements InspectionService {
             if (matchingImg != null) {
                 mappedImageIds.add(matchingImg.getId());
                 String rawUrl = matchingImg.getImageUrl();
-                String finalUrl = rawUrl;
-                if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
-                    if (rawUrl.startsWith("/api/inspector/inspection/image/")) {
-                        String filename = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
-                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
-                    } else if (rawUrl.startsWith("uploads/")) {
-                        finalUrl = baseUrl + "/" + rawUrl;
-                    } else {
-                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + rawUrl;
-                    }
-                }
+                String finalUrl = buildFullImageUrl(rawUrl);
                 photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
                         .id(matchingImg.getId())
                         .photoType(pt.name())
@@ -628,17 +660,7 @@ public class InspectionServiceImpl implements InspectionService {
         for (InspectionImage img : images) {
             if (img.getId() != null && !mappedImageIds.contains(img.getId())) {
                 String rawUrl = img.getImageUrl();
-                String finalUrl = rawUrl;
-                if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
-                    if (rawUrl.startsWith("/api/inspector/inspection/image/")) {
-                        String filename = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
-                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
-                    } else if (rawUrl.startsWith("uploads/")) {
-                        finalUrl = baseUrl + "/" + rawUrl;
-                    } else {
-                        finalUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + rawUrl;
-                    }
-                }
+                String finalUrl = buildFullImageUrl(rawUrl);
                 photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
                         .id(img.getId())
                         .photoType(null)
@@ -738,23 +760,11 @@ public class InspectionServiceImpl implements InspectionService {
                         .dealerReplyMessage(v.getDealerReplyMessage())
                         .build())
                 .exteriorPanelDetails(panels.stream().map(p -> {
-                    String panelImg = p.getImageUrl();
+                    String panelImg = buildFullImageUrl(p.getImageUrl());
                     if (panelImg == null || panelImg.trim().isEmpty()) {
                         for (InspectionImage img : images) {
                             if (img.getImageCategory() != null && img.getImageCategory().equalsIgnoreCase(p.getPanelName())) {
-                                String rawUrl = img.getImageUrl();
-                                if (rawUrl != null && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
-                                    if (rawUrl.startsWith("/api/inspector/inspection/image/")) {
-                                        String filename = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
-                                        panelImg = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + filename;
-                                    } else if (rawUrl.startsWith("uploads/")) {
-                                        panelImg = baseUrl + "/" + rawUrl;
-                                    } else {
-                                        panelImg = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + rawUrl;
-                                    }
-                                } else {
-                                    panelImg = rawUrl;
-                                }
+                                panelImg = buildFullImageUrl(img.getImageUrl());
                                 break;
                             }
                         }
