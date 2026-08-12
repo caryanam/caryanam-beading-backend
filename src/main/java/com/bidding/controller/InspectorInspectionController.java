@@ -139,6 +139,23 @@ public class InspectorInspectionController {
             @AuthenticationPrincipal UserDetails userDetails) throws IOException {
         
         Inspector inspector = getInspector(userDetails);
+
+        String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "image.jpg";
+        String lowerName = originalFilename.toLowerCase();
+        boolean isVideo = category.equalsIgnoreCase("Engine / Motor Noise") || lowerName.matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)$");
+
+        if (!isVideo) {
+            boolean isAvif = lowerName.endsWith(".avif") || (file.getContentType() != null && file.getContentType().contains("avif"));
+            boolean isAllowed = lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".webp")
+                    || (file.getContentType() != null && (file.getContentType().contains("jpeg") || file.getContentType().contains("png") || file.getContentType().contains("webp")));
+
+            if (isAvif || !isAllowed) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.<String>builder()
+                        .success(false)
+                        .message("Invalid file format. Please upload only JPG, JPEG, or PNG format image.")
+                        .build());
+            }
+        }
         
         // Create directory if not exists on disk
         String targetDir = uploadDir + "/" + carImageFolder;
@@ -148,16 +165,33 @@ public class InspectorInspectionController {
         }
 
         // Generate unique filename
-        String originalFilename = file.getOriginalFilename();
-        String fileExtension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        }
-        String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
+        String ext = isVideo ? (originalFilename.contains(".") ? originalFilename.substring(originalFilename.lastIndexOf(".")) : ".mp4") : ".jpg";
+        String uniqueFilename = UUID.randomUUID().toString() + ext;
         Path targetPath = Paths.get(targetDir).resolve(uniqueFilename);
 
-        // Copy file to disk
-        Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+        if (isVideo) {
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+        } else {
+            // Convert to standard JPEG format
+            boolean converted = false;
+            try (InputStream in = file.getInputStream()) {
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(in);
+                if (img != null) {
+                    java.awt.image.BufferedImage rgbImage = new java.awt.image.BufferedImage(
+                        img.getWidth(), img.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB
+                    );
+                    java.awt.Graphics2D g = rgbImage.createGraphics();
+                    g.drawImage(img, 0, 0, java.awt.Color.WHITE, null);
+                    g.dispose();
+                    javax.imageio.ImageIO.write(rgbImage, "jpg", targetPath.toFile());
+                    converted = true;
+                }
+            } catch (Exception ignored) {}
+
+            if (!converted) {
+                Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
 
         // Construct serving URL using configured baseUrl (https://api.caryanamlive.com)
         String fileUrl = baseUrl + "/" + uploadDir + "/" + carImageFolder + "/" + uniqueFilename;
