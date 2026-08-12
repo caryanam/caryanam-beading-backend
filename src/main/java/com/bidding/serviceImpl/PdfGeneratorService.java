@@ -869,84 +869,190 @@ public class PdfGeneratorService {
                 int commaIdx = imageUrl.indexOf(",");
                 if (commaIdx != -1) {
                     byte[] imgBytes = java.util.Base64.getDecoder().decode(imageUrl.substring(commaIdx + 1));
-                    Image pdfImg = Image.getInstance(imgBytes);
-                    pdfImg.scaleToFit(fitWidth, fitHeight);
-                    pdfImg.setAlignment(Element.ALIGN_CENTER);
-                    return pdfImg;
+                    Image pdfImg = loadPdfImageFromBytes(imgBytes, fitWidth, fitHeight);
+                    if (pdfImg != null) return pdfImg;
                 }
             }
 
-            // 2. Extract filename
+            // 2. Extract filename & base name
             String filename = imageUrl.contains("/") ? imageUrl.substring(imageUrl.lastIndexOf("/") + 1) : imageUrl;
             if (filename.contains("?")) {
                 filename = filename.substring(0, filename.indexOf("?"));
             }
+            String baseName = filename.contains(".") ? filename.substring(0, filename.lastIndexOf(".")) : filename;
 
-            // 3. Search local disk locations
+            // 3. Generate candidate filenames (matching exact extension + common image extensions)
+            List<String> fileVariations = new ArrayList<>();
+            fileVariations.add(filename);
+            for (String ext : new String[]{".jpg", ".jpeg", ".png", ".webp", ".avif"}) {
+                String var = baseName + ext;
+                if (!fileVariations.contains(var)) {
+                    fileVariations.add(var);
+                }
+            }
+
+            // 4. Search local disk locations
             String userDir = System.getProperty("user.dir");
-            List<Path> candidatePaths = new ArrayList<>();
-            candidatePaths.add(Paths.get("uploads", "car", "images", filename));
-            candidatePaths.add(Paths.get(userDir, "uploads", "car", "images", filename));
-            candidatePaths.add(Paths.get("uploads", "car", filename));
-            candidatePaths.add(Paths.get(userDir, "uploads", "car", filename));
-            candidatePaths.add(Paths.get("uploads", filename));
-            candidatePaths.add(Paths.get(userDir, "uploads", filename));
-            candidatePaths.add(Paths.get(filename));
-            candidatePaths.add(Paths.get(userDir, filename));
-            candidatePaths.add(Paths.get("C:/Users/Laptop On Rent 200/Documents/caryanam-beading-backend/uploads/car/images/", filename));
+            List<Path> baseDirs = new ArrayList<>();
+            baseDirs.add(Paths.get("uploads", "car", "images"));
+            baseDirs.add(Paths.get(userDir, "uploads", "car", "images"));
+            baseDirs.add(Paths.get("uploads", "inspections"));
+            baseDirs.add(Paths.get(userDir, "uploads", "inspections"));
+            baseDirs.add(Paths.get("uploads", "car"));
+            baseDirs.add(Paths.get(userDir, "uploads", "car"));
+            baseDirs.add(Paths.get("uploads"));
+            baseDirs.add(Paths.get(userDir, "uploads"));
+            baseDirs.add(Paths.get("."));
+            baseDirs.add(Paths.get(userDir));
+            baseDirs.add(Paths.get("C:/Users/Laptop On Rent 200/Documents/caryanam-beading-backend/uploads/car/images"));
 
-            for (Path path : candidatePaths) {
-                if (Files.exists(path) && !Files.isDirectory(path)) {
-                    try {
-                        byte[] bytes = Files.readAllBytes(path);
-                        Image pdfImg = Image.getInstance(bytes);
-                        pdfImg.scaleToFit(fitWidth, fitHeight);
-                        pdfImg.setAlignment(Element.ALIGN_CENTER);
-                        return pdfImg;
-                    } catch (Exception e1) {
+            for (Path baseDir : baseDirs) {
+                for (String fname : fileVariations) {
+                    Path candidate = baseDir.resolve(fname);
+                    if (Files.exists(candidate) && !Files.isDirectory(candidate)) {
                         try {
-                            Image pdfImg = Image.getInstance(path.toAbsolutePath().toString());
-                            pdfImg.scaleToFit(fitWidth, fitHeight);
-                            pdfImg.setAlignment(Element.ALIGN_CENTER);
-                            return pdfImg;
+                            byte[] bytes = Files.readAllBytes(candidate);
+                            Image pdfImg = loadPdfImageFromBytes(bytes, fitWidth, fitHeight);
+                            if (pdfImg != null) {
+                                return pdfImg;
+                            }
                         } catch (Exception ignored) {}
                     }
                 }
             }
 
-            // 4. Remote HTTP URL stream fallback
-            String targetUrl = imageUrl;
-            if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
-                targetUrl = "https://api.caryanamlive.com/" + (targetUrl.startsWith("/") ? targetUrl : "/" + targetUrl);
+            // 5. Remote HTTP URL stream fallback
+            List<String> targetUrls = new ArrayList<>();
+            if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+                targetUrls.add(imageUrl);
+                if (imageUrl.contains("/uploads/")) {
+                    String subPath = imageUrl.substring(imageUrl.indexOf("/uploads/"));
+                    targetUrls.add("http://localhost:8080" + subPath);
+                }
+            } else {
+                String subPath = imageUrl.startsWith("/") ? imageUrl : "/" + imageUrl;
+                targetUrls.add("https://api.caryanamlive.com" + subPath);
+                targetUrls.add("http://localhost:8080" + subPath);
             }
 
-            try {
-                URL url = new URL(targetUrl);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(3000);
-                conn.setReadTimeout(3000);
-                conn.setRequestMethod("GET");
-                if (conn.getResponseCode() == 200) {
-                    try (InputStream in = conn.getInputStream();
-                         ByteArrayOutputStream byteBuf = new ByteArrayOutputStream()) {
-                        byte[] buffer = new byte[4096];
-                        int n;
-                        while ((n = in.read(buffer)) != -1) {
-                            byteBuf.write(buffer, 0, n);
-                        }
-                        byte[] imgBytes = byteBuf.toByteArray();
-                        Image pdfImg = Image.getInstance(imgBytes);
-                        pdfImg.scaleToFit(fitWidth, fitHeight);
-                        pdfImg.setAlignment(Element.ALIGN_CENTER);
+            for (String targetUrl : targetUrls) {
+                byte[] httpBytes = fetchHttpImageBytes(targetUrl);
+                if (httpBytes != null && httpBytes.length > 0) {
+                    Image pdfImg = loadPdfImageFromBytes(httpBytes, fitWidth, fitHeight);
+                    if (pdfImg != null) {
                         return pdfImg;
                     }
                 }
-            } catch (Exception httpEx) {
-                System.err.println("HTTP stream fetch failed for: " + targetUrl + " -> " + httpEx.getMessage());
             }
+
+            // 6. Fallback Placeholder Image
+            return createFallbackPlaceholderImage(fitWidth, fitHeight, "PHOTO ATTACHED");
+
         } catch (Exception e) {
             System.err.println("Failed to create PDF image for URL: " + imageUrl + " -> " + e.getMessage());
         }
+        return createFallbackPlaceholderImage(fitWidth, fitHeight, "PHOTO ATTACHED");
+    }
+
+    private Image loadPdfImageFromBytes(byte[] rawBytes, float fitWidth, float fitHeight) {
+        if (rawBytes == null || rawBytes.length == 0) return null;
+
+        // Try direct OpenPDF Image.getInstance (fast path for JPEG, PNG, GIF, BMP)
+        try {
+            Image pdfImg = Image.getInstance(rawBytes);
+            pdfImg.scaleToFit(fitWidth, fitHeight);
+            pdfImg.setAlignment(Element.ALIGN_CENTER);
+            return pdfImg;
+        } catch (Exception ignored1) {}
+
+        // Fallback: Use Java ImageIO to decode into BufferedImage and re-encode to RGB JPEG
+        try {
+            java.awt.image.BufferedImage bufferedImage = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(rawBytes));
+            if (bufferedImage != null) {
+                java.awt.image.BufferedImage rgbImage = new java.awt.image.BufferedImage(
+                    bufferedImage.getWidth(),
+                    bufferedImage.getHeight(),
+                    java.awt.image.BufferedImage.TYPE_INT_RGB
+                );
+                java.awt.Graphics2D g = rgbImage.createGraphics();
+                g.drawImage(bufferedImage, 0, 0, java.awt.Color.WHITE, null);
+                g.dispose();
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                javax.imageio.ImageIO.write(rgbImage, "jpg", baos);
+                byte[] jpegBytes = baos.toByteArray();
+                if (jpegBytes.length > 0) {
+                    Image pdfImg = Image.getInstance(jpegBytes);
+                    pdfImg.scaleToFit(fitWidth, fitHeight);
+                    pdfImg.setAlignment(Element.ALIGN_CENTER);
+                    return pdfImg;
+                }
+            }
+        } catch (Exception ignored2) {}
+
         return null;
+    }
+
+    private byte[] fetchHttpImageBytes(String targetUrl) {
+        try {
+            URL url = new URL(targetUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                try (InputStream in = conn.getInputStream();
+                     ByteArrayOutputStream byteBuf = new ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[4096];
+                    int n;
+                    while ((n = in.read(buffer)) != -1) {
+                        byteBuf.write(buffer, 0, n);
+                    }
+                    return byteBuf.toByteArray();
+                }
+            }
+        } catch (Exception httpEx) {
+            System.err.println("HTTP stream fetch failed for: " + targetUrl + " -> " + httpEx.getMessage());
+        }
+        return null;
+    }
+
+    private Image createFallbackPlaceholderImage(float fitWidth, float fitHeight, String label) {
+        try {
+            int w = Math.max(140, (int) fitWidth * 2);
+            int h = Math.max(90, (int) fitHeight * 2);
+            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = img.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g.setColor(new Color(24, 27, 36));
+            g.fillRect(0, 0, w, h);
+
+            g.setColor(primaryColor);
+            g.setStroke(new java.awt.BasicStroke(2.0f));
+            g.drawRect(2, 2, w - 5, h - 5);
+
+            g.setColor(Color.WHITE);
+            g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 10));
+            java.awt.FontMetrics fm = g.getFontMetrics();
+            String text = (label != null && !label.isEmpty()) ? label.toUpperCase() : "PHOTO ATTACHED";
+            int textX = (w - fm.stringWidth(text)) / 2;
+            int textY = (h - fm.getHeight()) / 2 + fm.getAscent();
+            g.drawString(text, Math.max(4, textX), textY);
+            g.dispose();
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "jpg", baos);
+            Image pdfImg = Image.getInstance(baos.toByteArray());
+            pdfImg.scaleToFit(fitWidth, fitHeight);
+            pdfImg.setAlignment(Element.ALIGN_CENTER);
+            return pdfImg;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
