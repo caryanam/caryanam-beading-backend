@@ -761,19 +761,11 @@ public class InspectionServiceImpl implements InspectionService {
                         .build())
                 .exteriorPanelDetails(panels.stream().map(p -> {
                     String panelImg = buildFullImageUrl(p.getImageUrl());
-                    if (panelImg == null || panelImg.trim().isEmpty()) {
-                        for (InspectionImage img : images) {
-                            if (img.getImageCategory() != null && img.getImageCategory().equalsIgnoreCase(p.getPanelName())) {
-                                panelImg = buildFullImageUrl(img.getImageUrl());
-                                break;
-                            }
-                        }
-                    }
                     return InspectionDetailsResponse.PanelResponseDTO.builder()
                             .id(p.getId())
                             .panelName(p.getPanelName())
                             .condition(p.getCondition())
-                            .imageUrl(panelImg)
+                            .imageUrl(panelImg != null && !panelImg.trim().isEmpty() ? panelImg : null)
                             .build();
                 }).collect(Collectors.toList()))
                 .mechanicalDetails(mechanical == null ? null : InspectionDetailsResponse.MechanicalResponseDTO.builder()
