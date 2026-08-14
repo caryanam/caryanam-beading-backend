@@ -29,6 +29,26 @@ public class DealerController {
     private final BiddingService biddingService;
     private final com.bidding.service.NotificationService notificationService;
 
+    @PutMapping("/notifications/{id}/read")
+    @Operation(summary = "Mark single dealer notification as read")
+    public ResponseEntity<ApiResponse<Void>> markDealerNotificationAsRead(@PathVariable Long id) {
+        notificationService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Notification marked as read successfully.")
+                .build());
+    }
+
+    @PutMapping("/notifications/mark-all-read")
+    @Operation(summary = "Mark all dealer notifications as read")
+    public ResponseEntity<ApiResponse<Void>> markAllDealerNotificationsAsRead(Principal principal) {
+        notificationService.markAllAsReadForDealer(principal.getName());
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("All dealer notifications marked as read.")
+                .build());
+    }
+
     @GetMapping("/notifications")
     @Operation(summary = "Get notifications for logged-in dealer")
     public ResponseEntity<ApiResponse<List<com.bidding.dto.responce.NotificationDTO>>> getDealerNotifications(Principal principal) {

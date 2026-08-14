@@ -31,6 +31,26 @@ public class AdminInspectionController {
     private final BiddingService biddingService;
     private final com.bidding.service.NotificationService notificationService;
 
+    @PutMapping("/api/admin/notifications/{id}/read")
+    @Operation(summary = "Mark single admin notification as read")
+    public ResponseEntity<ApiResponse<Void>> markAdminNotificationAsRead(@PathVariable Long id) {
+        notificationService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Notification marked as read successfully.")
+                .build());
+    }
+
+    @PutMapping("/api/admin/notifications/mark-all-read")
+    @Operation(summary = "Mark all admin notifications as read")
+    public ResponseEntity<ApiResponse<Void>> markAllAdminNotificationsAsRead() {
+        notificationService.markAllAsReadForAdmin();
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("All admin notifications marked as read.")
+                .build());
+    }
+
     @GetMapping("/api/admin/notifications")
     @Operation(summary = "Get notifications for admin")
     public ResponseEntity<ApiResponse<List<com.bidding.dto.responce.NotificationDTO>>> getAdminNotifications() {

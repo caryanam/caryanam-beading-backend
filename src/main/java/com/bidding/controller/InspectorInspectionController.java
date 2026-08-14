@@ -43,6 +43,7 @@ public class InspectorInspectionController {
 
     private final InspectionService inspectionService;
     private final InspectorRepository inspectorRepository;
+    private final com.bidding.service.NotificationService notificationService;
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url}")
     private String baseUrl;
@@ -55,6 +56,41 @@ public class InspectorInspectionController {
 
     @org.springframework.beans.factory.annotation.Value("${app.car-video-folder}")
     private String carVideoFolder;
+
+    @GetMapping("/notifications")
+    @Operation(summary = "Get notifications for logged-in inspector")
+    public ResponseEntity<ApiResponse<List<com.bidding.dto.responce.NotificationDTO>>> getInspectorNotifications(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Inspector inspector = getInspector(userDetails);
+        List<com.bidding.dto.responce.NotificationDTO> list = notificationService.getInspectorNotifications(inspector.getEmail());
+        return ResponseEntity.ok(ApiResponse.<List<com.bidding.dto.responce.NotificationDTO>>builder()
+                .success(true)
+                .message("Inspector notifications retrieved successfully.")
+                .data(list)
+                .build());
+    }
+
+    @PutMapping("/notifications/{id}/read")
+    @Operation(summary = "Mark single inspector notification as read")
+    public ResponseEntity<ApiResponse<Void>> markInspectorNotificationAsRead(@PathVariable Long id) {
+        notificationService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Notification marked as read successfully.")
+                .build());
+    }
+
+    @PutMapping("/notifications/mark-all-read")
+    @Operation(summary = "Mark all inspector notifications as read")
+    public ResponseEntity<ApiResponse<Void>> markAllInspectorNotificationsAsRead(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Inspector inspector = getInspector(userDetails);
+        notificationService.markAllAsReadForInspector(inspector.getEmail());
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("All inspector notifications marked as read.")
+                .build());
+    }
 
     @GetMapping("")
     @Operation(summary = "Get list of all inspections for the logged-in inspector")
