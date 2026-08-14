@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,9 @@ public class OtpService {
     private final DealerRepository dealerRepository;
     private final InspectorRepository inspectorRepository;
     private final AdminRepository adminRepository;
+
+    @Value("")
+    private String fromEmail;
 
     private final Map<String, OtpData> otpStorage = new ConcurrentHashMap<>();
     private final Map<String, Boolean> verifiedEmails = new ConcurrentHashMap<>();
@@ -69,7 +73,7 @@ public class OtpService {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-            helper.setFrom("datturathod2333@gmail.com", "Caryanam Bidding");
+            helper.setFrom(fromEmail, "Caryanam Bidding");
             helper.setTo(cleanEmail);
             helper.setSubject(otp + " is your Caryanam Bidding Verification Code");
 
@@ -150,7 +154,7 @@ public class OtpService {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-            helper.setFrom("datturathod2333@gmail.com", "Caryanam Bidding");
+            helper.setFrom(fromEmail, "Caryanam Bidding");
             helper.setTo(cleanEmail);
             helper.setSubject(otp + " is your Password Change Verification Code");
 
