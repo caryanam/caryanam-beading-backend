@@ -118,11 +118,14 @@ public class PdfGeneratorService {
             List<InspectionDetailsResponse.PanelResponseDTO> panels = details != null ? details.getExteriorPanelDetails() : null;
             if (panels != null && !panels.isEmpty()) {
                 for (InspectionDetailsResponse.PanelResponseDTO p : panels) {
+                    String statusStr = p.getCondition() != null ? p.getCondition().name() : "OK";
+                    String cleanCond = statusStr.toUpperCase().trim();
+                    boolean isNa = "NA".equals(cleanCond) || "N/A".equals(cleanCond)
+                            || "NOT APPLICABLE".equals(cleanCond) || "NOT_APPLICABLE".equals(cleanCond)
+                            || cleanCond.startsWith("NA") || cleanCond.startsWith("N/A");
+
                     String panelImgUrl = p.getImageUrl();
-                    if ((panelImgUrl == null || panelImgUrl.trim().isEmpty())) {
-                        panelImgUrl = findPhotoUrlByName(details, p.getPanelName());
-                    }
-                    addPanelCell(panelTable, p.getPanelName(), p.getCondition() != null ? p.getCondition().name() : "OK", panelImgUrl);
+                    addPanelCell(panelTable, p.getPanelName(), statusStr, isNa ? null : panelImgUrl);
                 }
                 if (panels.size() % 2 != 0) {
                     panelTable.addCell("");
@@ -619,7 +622,7 @@ public class PdfGeneratorService {
 
         Font statusFont = valueFont;
         String cleanStatus = status != null ? status.toUpperCase().trim() : "OK";
-        if ("OK".equals(cleanStatus) || "NO DAMAGES".equals(cleanStatus)) {
+        if ("OK".equals(cleanStatus) || "NO DAMAGES".equals(cleanStatus) || "NA".equals(cleanStatus) || "N/A".equals(cleanStatus) || "NORMAL".equals(cleanStatus)) {
             statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, Font.BOLD, greenColor);
         } else if ("REPAINTED".equals(cleanStatus) || "CHANGED".equals(cleanStatus) || "SCRATCH".equals(cleanStatus) || "DENT".equals(cleanStatus)) {
             statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, Font.BOLD, amberColor);
@@ -639,7 +642,12 @@ public class PdfGeneratorService {
         imgCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         imgCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
-        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+        boolean isNa = "NA".equals(cleanStatus) || "N/A".equals(cleanStatus)
+                || "NOT APPLICABLE".equals(cleanStatus) || "NOT_APPLICABLE".equals(cleanStatus)
+                || "NONE".equals(cleanStatus) || "-".equals(cleanStatus)
+                || cleanStatus.startsWith("NA") || cleanStatus.startsWith("N/A");
+
+        if (!isNa && imageUrl != null && !imageUrl.trim().isEmpty()) {
             boolean isVideo = imageUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
                     || imageUrl.toLowerCase().contains("video")
                     || "Engine / Motor Noise".equalsIgnoreCase(name);
@@ -673,12 +681,13 @@ public class PdfGeneratorService {
         labelCell.setBackgroundColor(lightBg);
         table.addCell(labelCell);
 
-        boolean isOk = value != null && (value.toUpperCase().contains("OK") || value.toUpperCase().contains("WORKING") || value.toUpperCase().contains("YES") || value.toUpperCase().contains("CAPTURED"));
+        String cleanVal = value != null ? value.toUpperCase().trim() : "OK";
+        boolean isOk = cleanVal.contains("OK") || cleanVal.contains("WORKING") || cleanVal.contains("YES") || cleanVal.contains("CAPTURED") || cleanVal.contains("NORMAL");
         Font statusFont = valueFont;
         if (value != null && !value.isEmpty()) {
             if (isOk) {
                 statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, Font.BOLD, greenColor);
-            } else if (value.toUpperCase().contains("NO") || value.toUpperCase().contains("DAMAGED") || value.toUpperCase().contains("NOT WORKING")) {
+            } else if (cleanVal.contains("NO") || cleanVal.contains("DAMAGED") || cleanVal.contains("NOT WORKING") || cleanVal.contains("RUST") || cleanVal.contains("DENT")) {
                 statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, Font.BOLD, redColor);
             } else {
                 statusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, Font.BOLD, amberColor);
@@ -696,7 +705,14 @@ public class PdfGeneratorService {
         photoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         photoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
-        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+        boolean isNa = "NA".equals(cleanVal) || "N/A".equals(cleanVal)
+                || "NOT APPLICABLE".equals(cleanVal) || "NOT_APPLICABLE".equals(cleanVal)
+                || "NONE".equals(cleanVal) || "-".equals(cleanVal)
+                || cleanVal.startsWith("NA") || cleanVal.startsWith("N/A");
+
+        boolean isExplicitPhotoSlot = name.toUpperCase().endsWith("IMAGE") || name.toUpperCase().endsWith("PHOTO") || name.toUpperCase().endsWith("IMG");
+
+        if ((!isNa || isExplicitPhotoSlot) && imageUrl != null && !imageUrl.trim().isEmpty()) {
             boolean isVideo = imageUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
                     || imageUrl.toLowerCase().contains("video")
                     || "Engine / Motor Noise".equalsIgnoreCase(name);
