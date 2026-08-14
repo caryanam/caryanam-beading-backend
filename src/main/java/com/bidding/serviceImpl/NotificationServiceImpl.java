@@ -52,12 +52,38 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<NotificationDTO> getInspectorNotifications(String inspectorEmail) {
+        return notificationRepository.findForInspector(inspectorEmail).stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public void markAsRead(Long notificationId) {
         notificationRepository.findById(notificationId).ifPresent(n -> {
             n.setIsRead(true);
             notificationRepository.save(n);
         });
+    }
+
+    @Override
+    @Transactional
+    public void markAllAsReadForAdmin() {
+        notificationRepository.markAllAsReadForAdmin();
+    }
+
+    @Override
+    @Transactional
+    public void markAllAsReadForDealer(String dealerEmail) {
+        notificationRepository.markAllAsReadForDealer(dealerEmail);
+    }
+
+    @Override
+    @Transactional
+    public void markAllAsReadForInspector(String inspectorEmail) {
+        notificationRepository.markAllAsReadForInspector(inspectorEmail);
     }
 
     private NotificationDTO mapToDTO(Notification n) {

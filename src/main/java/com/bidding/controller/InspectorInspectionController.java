@@ -279,3 +279,4 @@ public class InspectorInspectionController {
                 .orElseThrow(() -> new ResourceNotFoundException("Inspector profile not found for email: " + email));
     }
 }
+
