@@ -26,7 +26,7 @@ public class OtpService {
     private final InspectorRepository inspectorRepository;
     private final AdminRepository adminRepository;
 
-    @Value("")
+    @Value("${spring.mail.username:support@caryanamlive.com}")
     private String fromEmail;
 
     private final Map<String, OtpData> otpStorage = new ConcurrentHashMap<>();
@@ -73,7 +73,8 @@ public class OtpService {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-            helper.setFrom(fromEmail, "Caryanam Bidding");
+            String sender = (fromEmail != null && !fromEmail.trim().isEmpty()) ? fromEmail : "support@caryanamlive.com";
+            helper.setFrom(sender, "Caryanam Bidding");
             helper.setTo(cleanEmail);
             helper.setSubject(otp + " is your Caryanam Bidding Verification Code");
 
@@ -154,7 +155,8 @@ public class OtpService {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-            helper.setFrom(fromEmail, "Caryanam Bidding");
+            String sender = (fromEmail != null && !fromEmail.trim().isEmpty()) ? fromEmail : "support@caryanamlive.com";
+            helper.setFrom(sender, "Caryanam Bidding");
             helper.setTo(cleanEmail);
             helper.setSubject(otp + " is your Password Change Verification Code");
 
