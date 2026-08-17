@@ -38,6 +38,10 @@ public class PdfGeneratorService {
     private final Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 8.5f, Font.NORMAL, darkColor);
 
     public byte[] generateInspectionPdfFromDto(InspectionDetailsResponse details) {
+        return generateInspectionPdfFromDto(details, false);
+    }
+
+    public byte[] generateInspectionPdfFromDto(InspectionDetailsResponse details, boolean isDealer) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4, 28, 28, 28, 28);
 
@@ -89,8 +93,10 @@ public class PdfGeneratorService {
 
             InspectionDetailsResponse.VehicleResponseDTO v = details != null ? details.getVehicleDetails() : null;
             if (v != null) {
-                addStyledTableCell(vehTable, "Customer / Owner Name", v.getCustomerName() != null ? v.getCustomerName() : (v.getOwnerName() != null ? v.getOwnerName() : "N/A"));
-                addStyledTableCell(vehTable, "Customer Mobile", v.getCustomerMobileNumber() != null ? v.getCustomerMobileNumber() : "N/A");
+                if (!isDealer) {
+                    addStyledTableCell(vehTable, "Customer / Owner Name", v.getCustomerName() != null ? v.getCustomerName() : (v.getOwnerName() != null ? v.getOwnerName() : "N/A"));
+                    addStyledTableCell(vehTable, "Customer Mobile", v.getCustomerMobileNumber() != null ? v.getCustomerMobileNumber() : "N/A");
+                }
                 addStyledTableCell(vehTable, "Registration Number", v.getVehicleNumber());
                 addStyledTableCell(vehTable, "Make & Model", (v.getBrand() != null ? v.getBrand() : "") + " " + (v.getModel() != null ? v.getModel() : "") + " " + (v.getVariant() != null ? v.getVariant() : ""));
                 addStyledTableCell(vehTable, "Manufacturing Year", v.getManufacturingYear() != null ? String.valueOf(v.getManufacturingYear()) : "N/A");

@@ -27,6 +27,8 @@ public interface InspectionService {
 
     byte[] generatePdfReport(Long id);
 
+    byte[] generateDealerPdfReport(Long id);
+
     void uploadInspectionImage(Long id, String category, String originalName, String fileUrl, Long inspectorId);
 
     InspectionDetailsResponse updateInspection(Long id, InspectionDraftRequest request, Long inspectorId);

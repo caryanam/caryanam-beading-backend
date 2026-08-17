@@ -558,7 +558,13 @@ public class InspectionServiceImpl implements InspectionService {
     @Transactional(readOnly = true)
     public byte[] generatePdfReport(Long id) {
         InspectionDetailsResponse details = getInspection(id);
-        return pdfGeneratorService.generateInspectionPdfFromDto(details);
+        return pdfGeneratorService.generateInspectionPdfFromDto(details, false);
+    }
+
+    @Override
+    public byte[] generateDealerPdfReport(Long id) {
+        InspectionDetailsResponse details = getInspection(id);
+        return pdfGeneratorService.generateInspectionPdfFromDto(details, true);
     }
 
     @Override

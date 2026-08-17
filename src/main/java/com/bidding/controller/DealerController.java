@@ -152,5 +152,15 @@ public class DealerController {
                 .message("Dealer reply submitted successfully.")
                 .build());
     }
-}
 
+    @GetMapping(value = {"/inspection/{id}/pdf", "/vehicles/{id}/pdf"})
+    @Operation(summary = "Download dealer inspection PDF report (Without inspector or customer contact details)")
+    public ResponseEntity<byte[]> downloadDealerPdf(@PathVariable Long id) {
+        byte[] pdfBytes = inspectionService.generateDealerPdfReport(id);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"dealer_inspection_report_" + id + ".pdf\"")
+                .body(pdfBytes);
+    }
+
+}
