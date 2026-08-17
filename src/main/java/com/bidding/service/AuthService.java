@@ -14,6 +14,6 @@ public interface AuthService {
     DealerResponseDTO registerDealer(DealerRegisterRequest request);
 
     AuthResponse login(LoginRequest request);
+
+    void resetPassword(String email, String otp, String newPassword);
 }
-
-

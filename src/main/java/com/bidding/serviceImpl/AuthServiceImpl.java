@@ -218,4 +218,51 @@ public class AuthServiceImpl implements AuthService {
 
         throw new BadCredentialsException("Invalid credentials. Please check your email/mobile number and password.");
     }
+
+    @Override
+    public void resetPassword(String email, String otp, String newPassword) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email address is required.");
+        }
+        String cleanEmail = email.trim().toLowerCase();
+
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new IllegalArgumentException("Password must be at least 6 characters long.");
+        }
+
+        boolean verified = otpService.isEmailVerified(cleanEmail);
+        if (!verified && otp != null && !otp.trim().isEmpty()) {
+            verified = otpService.verifyOtp(cleanEmail, otp);
+        }
+
+        if (!verified) {
+            throw new IllegalArgumentException("Email is not verified or OTP is invalid/expired. Please verify OTP first.");
+        }
+
+        Optional<Dealer> dealerOpt = dealerRepository.findByEmail(cleanEmail);
+        if (dealerOpt.isPresent()) {
+            Dealer dealer = dealerOpt.get();
+            dealer.setPassword(passwordEncoder.encode(newPassword.trim()));
+            dealerRepository.save(dealer);
+            return;
+        }
+
+        Optional<Inspector> inspectorOpt = inspectorRepository.findByEmail(cleanEmail);
+        if (inspectorOpt.isPresent()) {
+            Inspector inspector = inspectorOpt.get();
+            inspector.setPassword(passwordEncoder.encode(newPassword.trim()));
+            inspectorRepository.save(inspector);
+            return;
+        }
+
+        Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+        if (adminOpt.isPresent()) {
+            Admin admin = adminOpt.get();
+            admin.setPassword(passwordEncoder.encode(newPassword.trim()));
+            adminRepository.save(admin);
+            return;
+        }
+
+        throw new IllegalArgumentException("No registered account found with email: " + cleanEmail);
+    }
 }

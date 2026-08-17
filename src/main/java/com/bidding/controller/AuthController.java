@@ -118,4 +118,28 @@ public class AuthController {
                         .build()
         );
     }
+
+    @PostMapping("/auth/reset-password")
+    @Operation(summary = "Reset Password after OTP verification")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String otp = request.get("otp");
+        String newPassword = request.get("newPassword");
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            newPassword = request.get("password");
+        }
+        authService.resetPassword(email, otp, newPassword);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Password reset successfully. Please login with your new password.")
+                        .build()
+        );
+    }
+
+    @PostMapping("/auth/forgot-password")
+    @Operation(summary = "Forgot Password / Reset Password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> request) {
+        return resetPassword(request);
+    }
 }
