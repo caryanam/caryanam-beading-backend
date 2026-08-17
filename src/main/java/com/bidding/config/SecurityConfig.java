@@ -34,8 +34,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // Public authentication & registration endpoints
+                        .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/auth/**",
                                 "/api/inspector/register",
                                 "/api/dealer/register").permitAll()
 
@@ -105,3 +105,4 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
+
