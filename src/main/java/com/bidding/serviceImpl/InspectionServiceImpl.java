@@ -149,6 +149,7 @@ public class InspectionServiceImpl implements InspectionService {
             if (vDto.getModel() != null) vehicle.setModel(vDto.getModel());
             if (vDto.getVariant() != null) vehicle.setVariant(vDto.getVariant());
             if (vDto.getManufacturingYear() != null) vehicle.setManufacturingYear(vDto.getManufacturingYear());
+            if (vDto.getRegistrationYear() != null) vehicle.setRegistrationYear(vDto.getRegistrationYear());
             if (vDto.getFuelType() != null) vehicle.setFuelType(vDto.getFuelType());
             if (vDto.getTransmission() != null) vehicle.setTransmission(vDto.getTransmission());
             if (vDto.getOdometerReading() != null) vehicle.setOdometerReading(vDto.getOdometerReading());
@@ -459,7 +460,9 @@ public class InspectionServiceImpl implements InspectionService {
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
-                            .year(v != null ? v.getManufacturingYear() : null)
+                            .year(v != null ? (v.getRegistrationYear() != null ? v.getRegistrationYear() : v.getManufacturingYear()) : null)
+                            .manufacturingYear(v != null ? v.getManufacturingYear() : null)
+                            .registrationYear(v != null ? v.getRegistrationYear() : null)
                             .fuel(v != null ? v.getFuelType() : "N/A")
                             .transmission(v != null ? v.getTransmission() : "N/A")
                             .odometer(v != null ? v.getOdometerReading() : null)
@@ -500,7 +503,9 @@ public class InspectionServiceImpl implements InspectionService {
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
-                            .year(v != null ? v.getManufacturingYear() : null)
+                            .year(v != null ? (v.getRegistrationYear() != null ? v.getRegistrationYear() : v.getManufacturingYear()) : null)
+                            .manufacturingYear(v != null ? v.getManufacturingYear() : null)
+                            .registrationYear(v != null ? v.getRegistrationYear() : null)
                             .fuel(v != null ? v.getFuelType() : "N/A")
                             .transmission(v != null ? v.getTransmission() : "N/A")
                             .odometer(v != null ? v.getOdometerReading() : null)
@@ -740,6 +745,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .model(v.getModel())
                         .variant(v.getVariant())
                         .manufacturingYear(v.getManufacturingYear())
+                            .registrationYear(v.getRegistrationYear())
                         .fuelType(v.getFuelType())
                         .transmission(v.getTransmission())
                         .odometerReading(v.getOdometerReading())

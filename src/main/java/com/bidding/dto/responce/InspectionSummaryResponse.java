@@ -25,6 +25,8 @@ public class InspectionSummaryResponse {
     private String rejectionReason;
     private String vehicleImage;
     private Integer year;
+    private Integer manufacturingYear;
+    private Integer registrationYear;
     private String fuel;
     private String transmission;
     private Integer odometer;

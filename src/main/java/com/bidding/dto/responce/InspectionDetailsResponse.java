@@ -52,6 +52,7 @@ public class InspectionDetailsResponse {
         private String model;
         private String variant;
         private Integer manufacturingYear;
+        private Integer registrationYear;
         private String fuelType;
         private String transmission;
         private Integer odometerReading;

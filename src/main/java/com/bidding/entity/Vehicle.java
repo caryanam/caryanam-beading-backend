@@ -37,6 +37,9 @@ public class Vehicle {
     @Column(name = "manufacturing_year")
     private Integer manufacturingYear;
 
+    @Column(name = "registration_year")
+    private Integer registrationYear;
+
     @Column(name = "fuel_type")
     private String fuelType;
 

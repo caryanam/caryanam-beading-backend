@@ -94,6 +94,7 @@ public class PdfGeneratorService {
                 addStyledTableCell(vehTable, "Registration Number", v.getVehicleNumber());
                 addStyledTableCell(vehTable, "Make & Model", (v.getBrand() != null ? v.getBrand() : "") + " " + (v.getModel() != null ? v.getModel() : "") + " " + (v.getVariant() != null ? v.getVariant() : ""));
                 addStyledTableCell(vehTable, "Manufacturing Year", v.getManufacturingYear() != null ? String.valueOf(v.getManufacturingYear()) : "N/A");
+                addStyledTableCell(vehTable, "Registration Year", v.getRegistrationYear() != null ? String.valueOf(v.getRegistrationYear()) : "N/A");
                 addStyledTableCell(vehTable, "Fuel Type & Transmission", (v.getFuelType() != null ? v.getFuelType() : "N/A") + " / " + (v.getTransmission() != null ? v.getTransmission() : "N/A"));
                 addStyledTableCell(vehTable, "Odometer Reading", v.getOdometerReading() != null ? v.getOdometerReading() + " km" : "N/A");
                 addStyledTableCell(vehTable, "Insurance Status", v.getInsuranceStatus() != null ? v.getInsuranceStatus() : "N/A");
@@ -462,7 +463,7 @@ public class PdfGeneratorService {
                     .brand(v.getBrand())
                     .model(v.getModel())
                     .variant(v.getVariant())
-                    .manufacturingYear(v.getManufacturingYear())
+                    .manufacturingYear(v.getManufacturingYear()).registrationYear(v.getRegistrationYear())
                     .fuelType(v.getFuelType())
                     .transmission(v.getTransmission())
                     .odometerReading(v.getOdometerReading())
