@@ -96,9 +96,12 @@ public class PdfGeneratorService {
                 if (!isDealer) {
                     addStyledTableCell(vehTable, "Customer / Owner Name", v.getCustomerName() != null ? v.getCustomerName() : (v.getOwnerName() != null ? v.getOwnerName() : "N/A"));
                     addStyledTableCell(vehTable, "Customer Mobile", v.getCustomerMobileNumber() != null ? v.getCustomerMobileNumber() : "N/A");
+                } else {
+                    addStyledTableCell(vehTable, "Ownership", (v.getOwnerName() != null && !v.getOwnerName().trim().isEmpty()) ? v.getOwnerName() : "1st Owner");
                 }
                 addStyledTableCell(vehTable, "Registration Number", v.getVehicleNumber());
-                addStyledTableCell(vehTable, "Make & Model", (v.getBrand() != null ? v.getBrand() : "") + " " + (v.getModel() != null ? v.getModel() : "") + " " + (v.getVariant() != null ? v.getVariant() : ""));
+                addStyledTableCell(vehTable, "Brand & Model", (v.getBrand() != null ? v.getBrand() : "") + " " + (v.getModel() != null ? v.getModel() : ""));
+                addStyledTableCell(vehTable, "Variant & Trim", v.getVariant() != null && !v.getVariant().trim().isEmpty() ? v.getVariant() : "Standard");
                 addStyledTableCell(vehTable, "Manufacturing Year", v.getManufacturingYear() != null ? String.valueOf(v.getManufacturingYear()) : "N/A");
                 addStyledTableCell(vehTable, "Registration Year", v.getRegistrationYear() != null ? String.valueOf(v.getRegistrationYear()) : "N/A");
                 addStyledTableCell(vehTable, "Fuel Type & Transmission", (v.getFuelType() != null ? v.getFuelType() : "N/A") + " / " + (v.getTransmission() != null ? v.getTransmission() : "N/A"));
@@ -324,15 +327,17 @@ public class PdfGeneratorService {
             document.add(cabinPhotosTable);
 
             // 8. General Remarks & Report Status
-            addSectionHeading(document, "INSPECTOR REMARKS & REPORT STATUS");
+            addSectionHeading(document, isDealer ? "EVALUATION REMARKS & REPORT STATUS" : "INSPECTOR REMARKS & REPORT STATUS");
             PdfPTable remTable = new PdfPTable(2);
             remTable.setWidthPercentage(100);
             remTable.setSpacingAfter(15);
 
             addStyledTableCell(remTable, "Inspection Status", details != null && details.getStatus() != null ? details.getStatus().name() : "SUBMITTED");
-            addStyledTableCell(remTable, "Lead Inspector", details != null && details.getInspectorName() != null ? details.getInspectorName() : "N/A");
+            if (!isDealer) {
+                addStyledTableCell(remTable, "Lead Inspector", details != null && details.getInspectorName() != null ? details.getInspectorName() : "N/A");
+            }
             addStyledTableCell(remTable, "Rejection Reason", details != null && details.getRejectionReason() != null ? details.getRejectionReason() : "None");
-            addStyledTableCell(remTable, "Inspector Remarks", (interior != null && interior.getRemarks() != null) ? interior.getRemarks() : "No remarks entered.");
+            addStyledTableCell(remTable, "Evaluation Remarks", (interior != null && interior.getRemarks() != null) ? interior.getRemarks() : "No remarks entered.");
             document.add(remTable);
 
             // 9. Photo Gallery Checklist with Images
