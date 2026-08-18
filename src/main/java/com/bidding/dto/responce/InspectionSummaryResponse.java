@@ -40,4 +40,13 @@ public class InspectionSummaryResponse {
     private String sellerMessage;
     private String adminDealerMessage;
     private String dealerReplyMessage;
+    private String location;
+    private String rtoInformation;
+    private String rsAvailability;
+    private String duplicateKey;
+    private String rtoNocIssued;
+    private String underHypothecation;
+    private String mismatchInRc;
+    private String roadTaxPaid;
+    private String fitnessUpto;
 }

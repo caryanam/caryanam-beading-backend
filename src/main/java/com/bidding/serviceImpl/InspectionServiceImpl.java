@@ -485,6 +485,15 @@ public class InspectionServiceImpl implements InspectionService {
                             .sellerMessage(v != null ? v.getSellerMessage() : null)
                             .adminDealerMessage(v != null ? v.getAdminDealerMessage() : null)
                             .dealerReplyMessage(v != null ? v.getDealerReplyMessage() : null)
+                            .location(v != null ? v.getLocation() : null)
+                            .rtoInformation(v != null ? v.getRtoInformation() : null)
+                            .rsAvailability(v != null ? v.getRsAvailability() : null)
+                            .duplicateKey(v != null ? v.getDuplicateKey() : null)
+                            .rtoNocIssued(v != null ? v.getRtoNocIssued() : null)
+                            .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .mismatchInRc(v != null ? v.getMismatchInRc() : null)
+                            .roadTaxPaid(v != null ? v.getRoadTaxPaid() : null)
+                            .fitnessUpto(v != null ? v.getFitnessUpto() : null)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -519,6 +528,15 @@ public class InspectionServiceImpl implements InspectionService {
                             .transmission(v != null ? v.getTransmission() : "N/A")
                             .odometer(v != null ? v.getOdometerReading() : null)
                             .vehicleStatus(v != null ? v.getVehicleStatus() : null)
+                            .location(v != null ? v.getLocation() : null)
+                            .rtoInformation(v != null ? v.getRtoInformation() : null)
+                            .rsAvailability(v != null ? v.getRsAvailability() : null)
+                            .duplicateKey(v != null ? v.getDuplicateKey() : null)
+                            .rtoNocIssued(v != null ? v.getRtoNocIssued() : null)
+                            .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .mismatchInRc(v != null ? v.getMismatchInRc() : null)
+                            .roadTaxPaid(v != null ? v.getRoadTaxPaid() : null)
+                            .fitnessUpto(v != null ? v.getFitnessUpto() : null)
                             .build();
                 })
                 .collect(Collectors.toList());
