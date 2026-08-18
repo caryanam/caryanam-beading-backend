@@ -43,7 +43,16 @@ public class InspectionDraftRequest {
         private String insuranceStatus;
         private String inspectorCode;
         private LocalDateTime inspectionDate;
-        private Double suggestedPrice;
+                private Double suggestedPrice;
+        private String location;
+        private String rtoInformation;
+        private String rsAvailability;
+        private String duplicateKey;
+        private String rtoNocIssued;
+        private String underHypothecation;
+        private String mismatchInRc;
+        private String roadTaxPaid;
+        private String fitnessUpto;
     }
 
     @Data

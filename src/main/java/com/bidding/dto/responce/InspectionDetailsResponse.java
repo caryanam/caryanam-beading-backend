@@ -60,7 +60,16 @@ public class InspectionDetailsResponse {
         private String inspectorCode;
         private LocalDateTime inspectionDate;
         private String vehicleStatus;
-        private Double suggestedPrice;
+                private Double suggestedPrice;
+        private String location;
+        private String rtoInformation;
+        private String rsAvailability;
+        private String duplicateKey;
+        private String rtoNocIssued;
+        private String underHypothecation;
+        private String mismatchInRc;
+        private String roadTaxPaid;
+        private String fitnessUpto;
         private Double currentHighestBid;
         private String currentHighestBidder;
         private Long currentHighestBidderId;

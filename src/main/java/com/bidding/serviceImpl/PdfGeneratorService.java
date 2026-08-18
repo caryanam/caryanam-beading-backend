@@ -107,6 +107,15 @@ public class PdfGeneratorService {
                 addStyledTableCell(vehTable, "Fuel Type & Transmission", (v.getFuelType() != null ? v.getFuelType() : "N/A") + " / " + (v.getTransmission() != null ? v.getTransmission() : "N/A"));
                 addStyledTableCell(vehTable, "Odometer Reading", v.getOdometerReading() != null ? v.getOdometerReading() + " km" : "N/A");
                 addStyledTableCell(vehTable, "Insurance Status", v.getInsuranceStatus() != null ? v.getInsuranceStatus() : "N/A");
+                addStyledTableCell(vehTable, "Location", v.getLocation() != null ? v.getLocation() : "N/A");
+                addStyledTableCell(vehTable, "RTO Information", v.getRtoInformation() != null ? v.getRtoInformation() : "N/A");
+                addStyledTableCell(vehTable, "RS Availability", v.getRsAvailability() != null ? v.getRsAvailability() : "N/A");
+                addStyledTableCell(vehTable, "Duplicate Key", v.getDuplicateKey() != null ? v.getDuplicateKey() : "N/A");
+                addStyledTableCell(vehTable, "RTO NOC Issued", v.getRtoNocIssued() != null ? v.getRtoNocIssued() : "N/A");
+                addStyledTableCell(vehTable, "Under Hypothecation", v.getUnderHypothecation() != null ? v.getUnderHypothecation() : "N/A");
+                addStyledTableCell(vehTable, "Mismatch in RC", v.getMismatchInRc() != null ? v.getMismatchInRc() : "N/A");
+                addStyledTableCell(vehTable, "Road Tax Paid", v.getRoadTaxPaid() != null ? v.getRoadTaxPaid() : "N/A");
+                addStyledTableCell(vehTable, "Fitness Valid Upto", v.getFitnessUpto() != null ? v.getFitnessUpto() : "N/A");
                 addStyledTableCell(vehTable, "Suggested Price Valuation", formatCurrency(v.getSuggestedPrice()));
             } else {
                 PdfPCell cell = new PdfPCell(new Phrase("No vehicle specifications captured.", valueFont));

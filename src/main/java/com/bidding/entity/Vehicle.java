@@ -57,6 +57,33 @@ public class Vehicle {
     @Column(name = "inspection_date")
     private LocalDateTime inspectionDate;
 
+        @Column(name = "location")
+    private String location;
+
+    @Column(name = "rto_information")
+    private String rtoInformation;
+
+    @Column(name = "rs_availability")
+    private String rsAvailability;
+
+    @Column(name = "duplicate_key")
+    private String duplicateKey;
+
+    @Column(name = "rto_noc_issued")
+    private String rtoNocIssued;
+
+    @Column(name = "under_hypothecation")
+    private String underHypothecation;
+
+    @Column(name = "mismatch_in_rc")
+    private String mismatchInRc;
+
+    @Column(name = "road_tax_paid")
+    private String roadTaxPaid;
+
+    @Column(name = "fitness_upto")
+    private String fitnessUpto;
+
     @Column(name = "vehicle_status")
     private String vehicleStatus; // e.g. READY_FOR_AUCTION
 

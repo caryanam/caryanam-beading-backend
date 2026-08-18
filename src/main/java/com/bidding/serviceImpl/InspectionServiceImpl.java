@@ -157,6 +157,15 @@ public class InspectionServiceImpl implements InspectionService {
             if (vDto.getInspectorCode() != null) vehicle.setInspectorCode(vDto.getInspectorCode());
             if (vDto.getInspectionDate() != null) vehicle.setInspectionDate(vDto.getInspectionDate());
             if (vDto.getSuggestedPrice() != null) vehicle.setSuggestedPrice(vDto.getSuggestedPrice());
+            if (vDto.getLocation() != null) vehicle.setLocation(vDto.getLocation());
+            if (vDto.getRtoInformation() != null) vehicle.setRtoInformation(vDto.getRtoInformation());
+            if (vDto.getRsAvailability() != null) vehicle.setRsAvailability(vDto.getRsAvailability());
+            if (vDto.getDuplicateKey() != null) vehicle.setDuplicateKey(vDto.getDuplicateKey());
+            if (vDto.getRtoNocIssued() != null) vehicle.setRtoNocIssued(vDto.getRtoNocIssued());
+            if (vDto.getUnderHypothecation() != null) vehicle.setUnderHypothecation(vDto.getUnderHypothecation());
+            if (vDto.getMismatchInRc() != null) vehicle.setMismatchInRc(vDto.getMismatchInRc());
+            if (vDto.getRoadTaxPaid() != null) vehicle.setRoadTaxPaid(vDto.getRoadTaxPaid());
+            if (vDto.getFitnessUpto() != null) vehicle.setFitnessUpto(vDto.getFitnessUpto());
             vehicleRepository.save(vehicle);
         }
 
@@ -760,6 +769,15 @@ public class InspectionServiceImpl implements InspectionService {
                         .inspectionDate(v.getInspectionDate())
                         .vehicleStatus(v.getVehicleStatus())
                         .suggestedPrice(v.getSuggestedPrice())
+                        .location(v.getLocation())
+                        .rtoInformation(v.getRtoInformation())
+                        .rsAvailability(v.getRsAvailability())
+                        .duplicateKey(v.getDuplicateKey())
+                        .rtoNocIssued(v.getRtoNocIssued())
+                        .underHypothecation(v.getUnderHypothecation())
+                        .mismatchInRc(v.getMismatchInRc())
+                        .roadTaxPaid(v.getRoadTaxPaid())
+                        .fitnessUpto(v.getFitnessUpto())
                         .currentHighestBid(v.getCurrentHighestBid())
                         .currentHighestBidder(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getDealershipName() : null)
                         .currentHighestBidderId(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getId() : null)
