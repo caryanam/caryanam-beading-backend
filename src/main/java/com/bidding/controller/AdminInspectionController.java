@@ -9,6 +9,9 @@ import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.dto.responce.BidResponseDTO;
 import com.bidding.service.InspectionService;
 import com.bidding.service.BiddingService;
+import com.bidding.dto.responce.NotificationDTO;
+import com.bidding.service.NotificationService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,6 +31,7 @@ public class AdminInspectionController {
 
     private final InspectionService inspectionService;
     private final BiddingService biddingService;
+    private final NotificationService notificationService;
 
     @GetMapping("/api/admin/inspections")
     @Operation(summary = "Get all vehicle inspections for admin dashboard")
@@ -226,5 +230,36 @@ public class AdminInspectionController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"inspection_report_" + id + ".pdf\"")
                 .body(pdfBytes);
+    }
+
+    @GetMapping("/api/admin/notifications")
+    @Operation(summary = "Get notifications for admin")
+    public ResponseEntity<ApiResponse<List<NotificationDTO>>> getAdminNotifications() {
+        List<NotificationDTO> list = notificationService.getAdminNotifications();
+        return ResponseEntity.ok(ApiResponse.<List<NotificationDTO>>builder()
+                .success(true)
+                .message("Admin notifications retrieved successfully.")
+                .data(list)
+                .build());
+    }
+
+    @PutMapping("/api/admin/notifications/{id}/read")
+    @Operation(summary = "Mark single admin notification as read")
+    public ResponseEntity<ApiResponse<Void>> markAdminNotificationAsRead(@PathVariable Long id) {
+        notificationService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Notification marked as read.")
+                .build());
+    }
+
+    @PutMapping("/api/admin/notifications/mark-all-read")
+    @Operation(summary = "Mark all admin notifications as read")
+    public ResponseEntity<ApiResponse<Void>> markAllAdminNotificationsAsRead() {
+        notificationService.markAllAsReadForAdmin();
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("All admin notifications marked as read.")
+                .build());
     }
 }
