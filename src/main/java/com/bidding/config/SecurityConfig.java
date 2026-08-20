@@ -37,6 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/inspector/register",
+                                "/api/freelancer/register",
                                 "/api/dealer/register").permitAll()
 
                         // Public image serving & PDF report downloading
@@ -55,8 +56,9 @@ public class SecurityConfig {
 
                         // Role based access control
                         .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/inspector/**", "/inspector/**").hasRole("INSPECTOR")
-                        .requestMatchers("/api/dealer/**", "/dealer/**").hasRole("DEALER")
+                        .requestMatchers("/api/inspector/**", "/inspector/**").hasAnyRole("INSPECTOR", "ADMIN")
+                        .requestMatchers("/api/freelancer/**", "/freelancer/**").hasAnyRole("FREELANCER", "INSPECTOR", "ADMIN")
+                        .requestMatchers("/api/dealer/**", "/dealer/**").hasAnyRole("DEALER", "ADMIN")
 
                         // No unlisted endpoint is public
                         .anyRequest().authenticated())
@@ -105,4 +107,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
-
