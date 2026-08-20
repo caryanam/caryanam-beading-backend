@@ -3,6 +3,7 @@ package com.bidding.service;
 import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
+import com.bidding.dto.responce.FreelancerVehicleResponse;
 import com.bidding.dto.responce.InspectorStatsResponse;
 import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
@@ -22,6 +23,8 @@ public interface InspectionService {
     List<InspectionSummaryResponse> getAllInspections();
 
     List<InspectionSummaryResponse> getInspectionsByInspector(Long inspectorId);
+
+    List<FreelancerVehicleResponse> getFreelancerSubmissions(Long inspectorId);
 
     void approveInspection(Long id);
 

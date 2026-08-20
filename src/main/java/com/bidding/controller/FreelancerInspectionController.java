@@ -3,7 +3,7 @@ package com.bidding.controller;
 import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.ApiResponse;
 import com.bidding.dto.responce.InspectionDetailsResponse;
-import com.bidding.dto.responce.InspectionSummaryResponse;
+import com.bidding.dto.responce.FreelancerVehicleResponse;
 import com.bidding.dto.responce.InspectorStatsResponse;
 import com.bidding.entity.Inspector;
 import com.bidding.exception.ResourceNotFoundException;
@@ -93,13 +93,13 @@ public class FreelancerInspectionController {
 
     @GetMapping("")
     @Operation(summary = "Get list of all submissions for logged-in freelancer")
-    public ResponseEntity<ApiResponse<List<InspectionSummaryResponse>>> getMyInspections(
+    public ResponseEntity<ApiResponse<List<FreelancerVehicleResponse>>> getMyInspections(
             @AuthenticationPrincipal UserDetails userDetails) {
         
         Inspector inspector = getFreelancer(userDetails);
-        List<InspectionSummaryResponse> response = inspectionService.getInspectionsByInspector(inspector.getId());
+        List<FreelancerVehicleResponse> response = inspectionService.getFreelancerSubmissions(inspector.getId());
         
-        return ResponseEntity.ok(ApiResponse.<List<InspectionSummaryResponse>>builder()
+        return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
                 .success(true)
                 .message("Submissions retrieved successfully.")
                 .data(response)

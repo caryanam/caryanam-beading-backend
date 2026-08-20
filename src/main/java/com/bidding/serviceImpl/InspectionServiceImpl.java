@@ -3,6 +3,7 @@ package com.bidding.serviceImpl;
 import com.bidding.dto.request.InspectionDraftRequest;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
+import com.bidding.dto.responce.FreelancerVehicleResponse;
 import com.bidding.dto.responce.InspectorStatsResponse;
 import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.BidResponseDTO;
@@ -586,6 +587,48 @@ public class InspectionServiceImpl implements InspectionService {
                             .mismatchInRc(v != null ? v.getMismatchInRc() : null)
                             .roadTaxPaid(v != null ? v.getRoadTaxPaid() : null)
                             .fitnessUpto(v != null ? v.getFitnessUpto() : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+@Override
+    @Transactional(readOnly = true)
+    public List<FreelancerVehicleResponse> getFreelancerSubmissions(Long inspectorId) {
+        return inspectionRepository.findByInspectorId(inspectorId).stream()
+                .map(ins -> {
+                    Vehicle v = ins.getVehicle();
+                    List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
+                    String imgUrl = (images != null && !images.isEmpty()) ? buildFullImageUrl(images.get(0).getImageUrl()) : null;
+                    List<String> photoUrls = (images != null) ? images.stream().map(img -> buildFullImageUrl(img.getImageUrl())).collect(Collectors.toList()) : Collections.emptyList();
+
+                    return FreelancerVehicleResponse.builder()
+                            .id(ins.getId())
+                            .inspectionId(ins.getId())
+                            .registrationNumber(v != null ? v.getVehicleNumber() : null)
+                            .vehicleNumber(v != null ? v.getVehicleNumber() : null)
+                            .customerName(v != null ? v.getCustomerName() : null)
+                            .customerMobileNumber(v != null ? v.getCustomerMobileNumber() : null)
+                            .brand(v != null ? v.getBrand() : null)
+                            .model(v != null ? v.getModel() : null)
+                            .variant(v != null ? v.getVariant() : null)
+                            .manufacturingYear(v != null ? v.getManufacturingYear() : null)
+                            .registrationYear(v != null ? v.getRegistrationYear() : null)
+                            .fuelType(v != null ? v.getFuelType() : null)
+                            .transmission(v != null ? v.getTransmission() : null)
+                            .odometerReading(v != null ? v.getOdometerReading() : null)
+                            .ownerName(v != null ? v.getOwnerName() : null)
+                            .insuranceStatus(v != null ? v.getInsuranceStatus() : null)
+                            .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .location(v != null ? v.getLocation() : null)
+                            .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .rtoInformation(v != null ? v.getRtoInformation() : null)
+                            .status(ins.getStatus())
+                            .rejectionReason(ins.getRejectionReason())
+                            .vehicleImage(imgUrl)
+                            .photos(photoUrls)
+                            .createdAt(ins.getCreatedAt())
+                            .submittedAt(ins.getSubmittedAt())
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -1278,12 +1321,12 @@ public class InspectionServiceImpl implements InspectionService {
             vehicleRepository.save(v);
 
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
-            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + String.format("%,.0f", counterPrice) : "Rejected bid");
+            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", counterPrice) : "Rejected bid");
             notificationService.createNotification(
                     "ADMIN",
                     null,
                     id,
-                    "ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬ Seller Decision: " + vehicleTitle,
+                    "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â¬ Seller Decision: " + vehicleTitle,
                     "Seller responded: " + desc + (message != null && !message.isEmpty() ? " ('" + message + "')" : ""),
                     "SELLER_RESPONSE"
             );
@@ -1314,7 +1357,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "DEALER",
                         v.getCurrentHighestBidder().getEmail(),
                         id,
-                        "ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬ Admin Negotiation Message: " + vehicleTitle,
+                        "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â¬ Admin Negotiation Message: " + vehicleTitle,
                         "Admin sent message regarding " + vehicleTitle + ": '" + message + "'",
                         "ADMIN_MESSAGE"
                 );
@@ -1344,7 +1387,7 @@ public class InspectionServiceImpl implements InspectionService {
                     "ADMIN",
                     null,
                     id,
-                    "ÃƒÂ¢Ã…â€œÃ¢â‚¬Â°ÃƒÂ¯Ã‚Â¸Ã‚Â Dealer Reply Received: " + vehicleTitle,
+                    "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Dealer Reply Received: " + vehicleTitle,
                     "Dealer " + dealerName + " replied for " + vehicleTitle + ": '" + reply + "'",
                     "DEALER_REPLY"
             );
@@ -1387,8 +1430,8 @@ public class InspectionServiceImpl implements InspectionService {
                             "DEALER",
                             v.getCurrentHighestBidder().getEmail(),
                             id,
-                            "ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â  Auction Won: " + vehicleTitle,
-                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
+                            "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â  Auction Won: " + vehicleTitle,
+                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
                             "AUCTION_WON"
                     );
                 }
@@ -1396,7 +1439,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "ADMIN",
                         null,
                         id,
-                        "ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â Vehicle Marked SOLD OUT: " + vehicleTitle,
+                        "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â Vehicle Marked SOLD OUT: " + vehicleTitle,
                         "Vehicle " + vehicleTitle + " has been marked SOLD OUT.",
                         "STATUS_UPDATE"
                 );
@@ -1405,7 +1448,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "ALL_DEALERS",
                         null,
                         id,
-                        "ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¥ Live Auction Started: " + vehicleTitle,
+                        "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¥ Live Auction Started: " + vehicleTitle,
                         "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
                         "AUCTION_LIVE"
                 );
