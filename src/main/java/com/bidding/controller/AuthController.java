@@ -3,10 +3,12 @@ package com.bidding.controller;
 import com.bidding.dto.request.LoginRequest;
 import com.bidding.dto.request.InspectorRegisterRequest;
 import com.bidding.dto.request.DealerRegisterRequest;
+import com.bidding.dto.request.FreelancerRegisterRequest;
 import com.bidding.dto.responce.ApiResponse;
 import com.bidding.dto.responce.AuthResponse;
 import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
+import com.bidding.dto.responce.FreelancerResponseDTO;
 import com.bidding.service.AuthService;
 import com.bidding.service.OtpService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -89,6 +91,19 @@ public class AuthController {
                         .success(true)
                         .message("Registration successful.")
                         .data(authService.registerInspector(request))
+                        .build()
+        );
+    }
+
+    @PostMapping("/freelancer/register")
+    @Operation(summary = "Freelancer Registration")
+    public ResponseEntity<ApiResponse<FreelancerResponseDTO>> registerFreelancer(
+            @Valid @RequestBody FreelancerRegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                ApiResponse.<FreelancerResponseDTO>builder()
+                        .success(true)
+                        .message("Registration successful.")
+                        .data(authService.registerFreelancer(request))
                         .build()
         );
     }

@@ -4,66 +4,33 @@ import com.bidding.dto.request.AdminRejectRequest;
 import com.bidding.dto.responce.ApiResponse;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.InspectionSummaryResponse;
-import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.dto.responce.InspectorResponseDTO;
+import com.bidding.dto.responce.DealerResponseDTO;
+import com.bidding.dto.responce.BidResponseDTO;
 import com.bidding.service.InspectionService;
 import com.bidding.service.BiddingService;
-import com.bidding.dto.responce.BidResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "Admin Vehicle Inspection Management API", description = "Endpoints for administrator inspection reviews")
+@Tag(name = "Admin Inspection Management", description = "APIs for Admin to manage vehicle inspections")
 public class AdminInspectionController {
 
     private final InspectionService inspectionService;
     private final BiddingService biddingService;
-    private final com.bidding.service.NotificationService notificationService;
-
-    @PutMapping("/api/admin/notifications/{id}/read")
-    @Operation(summary = "Mark single admin notification as read")
-    public ResponseEntity<ApiResponse<Void>> markAdminNotificationAsRead(@PathVariable Long id) {
-        notificationService.markAsRead(id);
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("Notification marked as read successfully.")
-                .build());
-    }
-
-    @PutMapping("/api/admin/notifications/mark-all-read")
-    @Operation(summary = "Mark all admin notifications as read")
-    public ResponseEntity<ApiResponse<Void>> markAllAdminNotificationsAsRead() {
-        notificationService.markAllAsReadForAdmin();
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("All admin notifications marked as read.")
-                .build());
-    }
-
-    @GetMapping("/api/admin/notifications")
-    @Operation(summary = "Get notifications for admin")
-    public ResponseEntity<ApiResponse<List<com.bidding.dto.responce.NotificationDTO>>> getAdminNotifications() {
-        List<com.bidding.dto.responce.NotificationDTO> list = notificationService.getAdminNotifications();
-        return ResponseEntity.ok(ApiResponse.<List<com.bidding.dto.responce.NotificationDTO>>builder()
-                .success(true)
-                .message("Admin notifications retrieved successfully.")
-                .data(list)
-                .build());
-    }
 
     @GetMapping("/api/admin/inspections")
-    @Operation(summary = "Get list of all submitted vehicle inspections")
+    @Operation(summary = "Get all vehicle inspections for admin dashboard")
     public ResponseEntity<ApiResponse<List<InspectionSummaryResponse>>> getAllInspections() {
         List<InspectionSummaryResponse> response = inspectionService.getAllInspections();
         
@@ -119,6 +86,18 @@ public class AdminInspectionController {
         return ResponseEntity.ok(ApiResponse.<List<InspectorResponseDTO>>builder()
                 .success(true)
                 .message("Inspectors retrieved successfully.")
+                .data(response)
+                .build());
+    }
+
+    @GetMapping("/api/admin/freelancers")
+    @Operation(summary = "Get list of all registered freelancers")
+    public ResponseEntity<ApiResponse<List<InspectorResponseDTO>>> getAllFreelancers() {
+        List<InspectorResponseDTO> response = inspectionService.getAllFreelancers();
+        
+        return ResponseEntity.ok(ApiResponse.<List<InspectorResponseDTO>>builder()
+                .success(true)
+                .message("Freelancers retrieved successfully.")
                 .data(response)
                 .build());
     }
@@ -249,4 +228,3 @@ public class AdminInspectionController {
                 .body(pdfBytes);
     }
 }
-

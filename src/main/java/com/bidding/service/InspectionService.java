@@ -39,6 +39,8 @@ public interface InspectionService {
 
     List<InspectorResponseDTO> getAllInspectors();
 
+    List<InspectorResponseDTO> getAllFreelancers();
+
     void deleteInspector(Long id);
 
     List<DealerResponseDTO> getAllDealers();

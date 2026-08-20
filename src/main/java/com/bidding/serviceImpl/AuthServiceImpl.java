@@ -4,9 +4,11 @@ import com.bidding.config.JwtService;
 import com.bidding.dto.request.LoginRequest;
 import com.bidding.dto.request.InspectorRegisterRequest;
 import com.bidding.dto.request.DealerRegisterRequest;
+import com.bidding.dto.request.FreelancerRegisterRequest;
 import com.bidding.dto.responce.AuthResponse;
 import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
+import com.bidding.dto.responce.FreelancerResponseDTO;
 import com.bidding.entity.Admin;
 import com.bidding.entity.Inspector;
 import com.bidding.entity.Dealer;
@@ -75,6 +77,48 @@ public class AuthServiceImpl implements AuthService {
                 .email(saved.getEmail())
                 .mobileNumber(saved.getMobileNumber())
                 .role(saved.getRole())
+                .build();
+    }
+
+    @Override
+    public FreelancerResponseDTO registerFreelancer(FreelancerRegisterRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Password and Confirm Password must match");
+        }
+
+        if (!otpService.isEmailVerified(request.getEmail())) {
+            throw new IllegalArgumentException("Email address is not verified. Please request and verify OTP first.");
+        }
+
+        if (adminRepository.existsByEmail(request.getEmail()) || 
+            inspectorRepository.existsByEmail(request.getEmail()) || 
+            dealerRepository.existsByEmail(request.getEmail())) {
+            throw new ResourceAlreadyExistsException("Email already exists");
+        }
+
+        if (adminRepository.existsByMobileNumber(request.getMobile()) || 
+            inspectorRepository.existsByMobileNumber(request.getMobile()) || 
+            dealerRepository.existsByMobileNumber(request.getMobile())) {
+            throw new ResourceAlreadyExistsException("Mobile number already exists");
+        }
+
+        Inspector freelancer = Inspector.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .mobileNumber(request.getMobile())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(Role.FREELANCER)
+                .build();
+
+        Inspector saved = inspectorRepository.save(freelancer);
+
+        return FreelancerResponseDTO.builder()
+                .id(saved.getId())
+                .fullName(saved.getFullName())
+                .email(saved.getEmail())
+                .mobileNumber(saved.getMobileNumber())
+                .role(saved.getRole())
+                .uploads(0)
                 .build();
     }
 
@@ -167,7 +211,7 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         }
 
-        // Check if Inspector
+        // Check if Inspector or Freelancer
         Optional<Inspector> inspectorOptional = inspectorRepository.findByEmailOrMobileNumber(identifier, identifier);
         if (inspectorOptional.isPresent()) {
             Inspector inspector = inspectorOptional.get();

@@ -9,6 +9,7 @@ import com.bidding.dto.responce.BidResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.entity.*;
 import com.bidding.config.AuctionWebSocketHandler;
+import com.bidding.enums.Role;
 import com.bidding.enums.InspectionStatus;
 import com.bidding.enums.PhotoType;
 import com.bidding.enums.VideoType;
@@ -989,6 +990,26 @@ public class InspectionServiceImpl implements InspectionService {
     @Transactional(readOnly = true)
     public List<InspectorResponseDTO> getAllInspectors() {
         return inspectorRepository.findAll().stream()
+                .filter(inspector -> inspector.getRole() == Role.INSPECTOR)
+                .map(inspector -> {
+                    long uploads = inspectionRepository.findByInspectorId(inspector.getId()).size();
+                    return InspectorResponseDTO.builder()
+                            .id(inspector.getId())
+                            .fullName(inspector.getFullName())
+                            .email(inspector.getEmail())
+                            .mobileNumber(inspector.getMobileNumber())
+                            .role(inspector.getRole())
+                            .uploads((int) uploads)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InspectorResponseDTO> getAllFreelancers() {
+        return inspectorRepository.findAll().stream()
+                .filter(inspector -> inspector.getRole() == Role.FREELANCER)
                 .map(inspector -> {
                     long uploads = inspectionRepository.findByInspectorId(inspector.getId()).size();
                     return InspectorResponseDTO.builder()
@@ -1151,7 +1172,8 @@ public class InspectionServiceImpl implements InspectionService {
             v.setVehicleStatus("LIVE");
             v.setCurrentHighestBid(v.getSuggestedPrice() != null ? v.getSuggestedPrice() : 0.0);
             v.setCurrentHighestBidder(null);
-            v.setAuctionEndTime(LocalDateTime.now().plusMinutes(10));
+            int durationMinutes = (ins.getInspector() != null && ins.getInspector().getRole() == Role.FREELANCER) ? 15 : 10;
+            v.setAuctionEndTime(LocalDateTime.now().plusMinutes(durationMinutes));
             v.setTotalBids(0);
             v = vehicleRepository.save(v);
 
