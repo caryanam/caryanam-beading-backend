@@ -17,6 +17,8 @@ public interface InspectionService {
 
     void submitInspection(Long id, Long inspectorId);
 
+    void submitFreelancerInspection(Long id, Long inspectorId);
+
     List<InspectionSummaryResponse> getAllInspections();
 
     List<InspectionSummaryResponse> getInspectionsByInspector(Long inspectorId);

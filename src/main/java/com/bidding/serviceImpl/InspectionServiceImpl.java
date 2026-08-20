@@ -447,6 +447,54 @@ public class InspectionServiceImpl implements InspectionService {
         inspectionRepository.save(inspection);
     }
 
+@Override
+    @Transactional
+    public void submitFreelancerInspection(Long id, Long inspectorId) {
+        Inspection inspection = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found with id: " + id));
+
+        Vehicle vehicle = inspection.getVehicle();
+        if (vehicle == null) {
+            throw new IllegalArgumentException("Validation Failed: Vehicle specifications must be completed.");
+        }
+
+        if (vehicle.getBrand() == null || vehicle.getBrand().trim().isEmpty()) {
+            throw new IllegalArgumentException("Validation Failed: Vehicle Brand / Make is required.");
+        }
+        if (vehicle.getModel() == null || vehicle.getModel().trim().isEmpty()) {
+            throw new IllegalArgumentException("Validation Failed: Vehicle Model is required.");
+        }
+        if (vehicle.getVariant() == null || vehicle.getVariant().trim().isEmpty()) {
+            throw new IllegalArgumentException("Validation Failed: Vehicle Variant is required.");
+        }
+
+        if (vehicle.getInspectorCode() == null || vehicle.getInspectorCode().trim().isEmpty()) {
+            String defaultCode = (inspection.getInspector() != null && inspection.getInspector().getEmail() != null)
+                    ? inspection.getInspector().getEmail()
+                    : "FREELANCER-" + (inspectorId != null ? inspectorId : "001");
+            vehicle.setInspectorCode(defaultCode);
+        }
+        if (vehicle.getSuggestedPrice() == null) {
+            vehicle.setSuggestedPrice(500000.0);
+        }
+        vehicleRepository.save(vehicle);
+
+        if (inspection.getExteriorRating() == null) inspection.setExteriorRating(8.0);
+        if (inspection.getMechanicalRating() == null) inspection.setMechanicalRating(8.0);
+        if (inspection.getTyreRating() == null) inspection.setTyreRating(8.0);
+        if (inspection.getInteriorRating() == null) inspection.setInteriorRating(8.0);
+        
+
+        Inspector inspector = inspectorRepository.findById(inspectorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Freelancer account not found"));
+
+        inspection.setStatus(InspectionStatus.SUBMITTED);
+        inspection.setSubmittedAt(LocalDateTime.now());
+        inspection.setSubmittedBy(inspector);
+        inspection.setUpdatedAt(LocalDateTime.now());
+        inspectionRepository.save(inspection);
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<InspectionSummaryResponse> getAllInspections() {
@@ -1230,12 +1278,12 @@ public class InspectionServiceImpl implements InspectionService {
             vehicleRepository.save(v);
 
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
-            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer â‚¹" + String.format("%,.0f", counterPrice) : "Rejected bid");
+            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + String.format("%,.0f", counterPrice) : "Rejected bid");
             notificationService.createNotification(
                     "ADMIN",
                     null,
                     id,
-                    "ðŸ’¬ Seller Decision: " + vehicleTitle,
+                    "ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬ Seller Decision: " + vehicleTitle,
                     "Seller responded: " + desc + (message != null && !message.isEmpty() ? " ('" + message + "')" : ""),
                     "SELLER_RESPONSE"
             );
@@ -1266,7 +1314,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "DEALER",
                         v.getCurrentHighestBidder().getEmail(),
                         id,
-                        "ðŸ’¬ Admin Negotiation Message: " + vehicleTitle,
+                        "ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬ Admin Negotiation Message: " + vehicleTitle,
                         "Admin sent message regarding " + vehicleTitle + ": '" + message + "'",
                         "ADMIN_MESSAGE"
                 );
@@ -1296,7 +1344,7 @@ public class InspectionServiceImpl implements InspectionService {
                     "ADMIN",
                     null,
                     id,
-                    "âœ‰ï¸ Dealer Reply Received: " + vehicleTitle,
+                    "ÃƒÂ¢Ã…â€œÃ¢â‚¬Â°ÃƒÂ¯Ã‚Â¸Ã‚Â Dealer Reply Received: " + vehicleTitle,
                     "Dealer " + dealerName + " replied for " + vehicleTitle + ": '" + reply + "'",
                     "DEALER_REPLY"
             );
@@ -1339,8 +1387,8 @@ public class InspectionServiceImpl implements InspectionService {
                             "DEALER",
                             v.getCurrentHighestBidder().getEmail(),
                             id,
-                            "ðŸ† Auction Won: " + vehicleTitle,
-                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for â‚¹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
+                            "ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â  Auction Won: " + vehicleTitle,
+                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
                             "AUCTION_WON"
                     );
                 }
@@ -1348,7 +1396,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "ADMIN",
                         null,
                         id,
-                        "ðŸ Vehicle Marked SOLD OUT: " + vehicleTitle,
+                        "ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â Vehicle Marked SOLD OUT: " + vehicleTitle,
                         "Vehicle " + vehicleTitle + " has been marked SOLD OUT.",
                         "STATUS_UPDATE"
                 );
@@ -1357,7 +1405,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "ALL_DEALERS",
                         null,
                         id,
-                        "ðŸ”¥ Live Auction Started: " + vehicleTitle,
+                        "ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¥ Live Auction Started: " + vehicleTitle,
                         "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
                         "AUCTION_LIVE"
                 );

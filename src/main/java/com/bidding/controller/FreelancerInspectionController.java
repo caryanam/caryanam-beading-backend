@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping({"/api/freelancer/inspection", "/api/freelancer/vehicles"})
+@RequestMapping({"/api/freelancer/inspection", "/api/freelancer/vehicles", "/api/freelancer"})
 @RequiredArgsConstructor
 @Tag(name = "Freelancer Vehicle Inspection API", description = "Endpoints for freelancer vehicle submission management")
 public class FreelancerInspectionController {
@@ -69,7 +69,7 @@ public class FreelancerInspectionController {
                 .build());
     }
 
-    @RequestMapping(value = "/notifications/{id}/read", method = {RequestMethod.PUT, RequestMethod.POST})
+    @RequestMapping(value = "/notifications/{id}/read", method = {RequestMethod.PUT, RequestMethod.POST, RequestMethod.GET})
     @Operation(summary = "Mark single freelancer notification as read")
     public ResponseEntity<ApiResponse<Void>> markFreelancerNotificationAsRead(@PathVariable Long id) {
         notificationService.markAsRead(id);
@@ -79,7 +79,7 @@ public class FreelancerInspectionController {
                 .build());
     }
 
-    @RequestMapping(value = "/notifications/mark-all-read", method = {RequestMethod.PUT, RequestMethod.POST})
+    @RequestMapping(value = "/notifications/mark-all-read", method = {RequestMethod.PUT, RequestMethod.POST, RequestMethod.GET})
     @Operation(summary = "Mark all freelancer notifications as read")
     public ResponseEntity<ApiResponse<Void>> markAllFreelancerNotificationsAsRead(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -158,7 +158,7 @@ public class FreelancerInspectionController {
             @AuthenticationPrincipal UserDetails userDetails) {
         
         Inspector inspector = getFreelancer(userDetails);
-        inspectionService.submitInspection(inspectionId, inspector.getId());
+        inspectionService.submitFreelancerInspection(inspectionId, inspector.getId());
         
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .success(true)
