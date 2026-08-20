@@ -695,8 +695,16 @@ public class InspectionServiceImpl implements InspectionService {
         Inspector inspector = inspectorRepository.findById(inspectorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inspector not found"));
 
-        // Delete existing category image if any to avoid duplicates
-        inspectionImageRepository.deleteByInspectionIdAndImageCategory(id, category);
+        if (inspection.getStatus() == InspectionStatus.DRAFT) {
+            inspection.setStatus(InspectionStatus.IN_PROGRESS);
+        }
+        inspection.setUpdatedAt(LocalDateTime.now());
+        inspection = inspectionRepository.saveAndFlush(inspection);
+
+        try {
+            inspectionImageRepository.deleteByInspectionIdAndImageCategory(id, category);
+            inspectionImageRepository.flush();
+        } catch (Exception ignored) {}
 
         InspectionImage image = InspectionImage.builder()
                 .inspection(inspection)
@@ -704,15 +712,10 @@ public class InspectionServiceImpl implements InspectionService {
                 .imageUrl(cleanRelativePath(fileUrl))
                 .originalName(originalName)
                 .inspector(inspector)
+                .createdTime(LocalDateTime.now())
                 .build();
-        
-        inspectionImageRepository.save(image);
 
-        // Update status to IN_PROGRESS if DRAFT
-        if (inspection.getStatus() == InspectionStatus.DRAFT) {
-            inspection.setStatus(InspectionStatus.IN_PROGRESS);
-            inspectionRepository.save(inspection);
-        }
+        inspectionImageRepository.save(image);
     }
 
     private boolean isCategoryMatch(String cat, PhotoType pt) {
@@ -1321,12 +1324,12 @@ public class InspectionServiceImpl implements InspectionService {
             vehicleRepository.save(v);
 
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
-            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", counterPrice) : "Rejected bid");
+            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", counterPrice) : "Rejected bid");
             notificationService.createNotification(
                     "ADMIN",
                     null,
                     id,
-                    "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â¬ Seller Decision: " + vehicleTitle,
+                    "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Seller Decision: " + vehicleTitle,
                     "Seller responded: " + desc + (message != null && !message.isEmpty() ? " ('" + message + "')" : ""),
                     "SELLER_RESPONSE"
             );
@@ -1357,7 +1360,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "DEALER",
                         v.getCurrentHighestBidder().getEmail(),
                         id,
-                        "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â¬ Admin Negotiation Message: " + vehicleTitle,
+                        "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Admin Negotiation Message: " + vehicleTitle,
                         "Admin sent message regarding " + vehicleTitle + ": '" + message + "'",
                         "ADMIN_MESSAGE"
                 );
@@ -1387,7 +1390,7 @@ public class InspectionServiceImpl implements InspectionService {
                     "ADMIN",
                     null,
                     id,
-                    "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Dealer Reply Received: " + vehicleTitle,
+                    "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Dealer Reply Received: " + vehicleTitle,
                     "Dealer " + dealerName + " replied for " + vehicleTitle + ": '" + reply + "'",
                     "DEALER_REPLY"
             );
@@ -1430,8 +1433,8 @@ public class InspectionServiceImpl implements InspectionService {
                             "DEALER",
                             v.getCurrentHighestBidder().getEmail(),
                             id,
-                            "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â  Auction Won: " + vehicleTitle,
-                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
+                            "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â  Auction Won: " + vehicleTitle,
+                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
                             "AUCTION_WON"
                     );
                 }
@@ -1439,7 +1442,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "ADMIN",
                         null,
                         id,
-                        "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â Vehicle Marked SOLD OUT: " + vehicleTitle,
+                        "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Vehicle Marked SOLD OUT: " + vehicleTitle,
                         "Vehicle " + vehicleTitle + " has been marked SOLD OUT.",
                         "STATUS_UPDATE"
                 );
@@ -1448,7 +1451,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "ALL_DEALERS",
                         null,
                         id,
-                        "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¥ Live Auction Started: " + vehicleTitle,
+                        "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Live Auction Started: " + vehicleTitle,
                         "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
                         "AUCTION_LIVE"
                 );
