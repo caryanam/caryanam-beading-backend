@@ -15,7 +15,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("SELECT n FROM Notification n WHERE n.recipientRole = 'ALL_DEALERS' OR (n.recipientRole = 'DEALER' AND n.recipientEmail = :email) ORDER BY n.createdAt DESC")
     List<Notification> findForDealer(@Param("email") String email);
 
-    @Query("SELECT n FROM Notification n WHERE n.recipientRole = 'ALL_INSPECTORS' OR (n.recipientRole = 'INSPECTOR' AND n.recipientEmail = :email) ORDER BY n.createdAt DESC")
+    @Query("SELECT n FROM Notification n WHERE n.recipientRole = 'ALL_INSPECTORS' OR n.recipientRole = 'ALL_FREELANCERS' OR ((n.recipientRole = 'INSPECTOR' OR n.recipientRole = 'FREELANCER') AND n.recipientEmail = :email) ORDER BY n.createdAt DESC")
     List<Notification> findForInspector(@Param("email") String email);
 
     @Modifying
@@ -27,6 +27,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     void markAllAsReadForDealer(@Param("email") String email);
 
     @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true WHERE (n.recipientRole = 'ALL_INSPECTORS' OR (n.recipientRole = 'INSPECTOR' AND n.recipientEmail = :email))")
+    @Query("UPDATE Notification n SET n.isRead = true WHERE (n.recipientRole = 'ALL_INSPECTORS' OR n.recipientRole = 'ALL_FREELANCERS' OR ((n.recipientRole = 'INSPECTOR' OR n.recipientRole = 'FREELANCER') AND n.recipientEmail = :email))")
     void markAllAsReadForInspector(@Param("email") String email);
 }

@@ -495,6 +495,24 @@ public class InspectionServiceImpl implements InspectionService {
         inspection.setSubmittedBy(inspector);
         inspection.setUpdatedAt(LocalDateTime.now());
         inspectionRepository.save(inspection);
+
+        String vTitle = String.format("%s %s (%s)", vehicle.getBrand(), vehicle.getModel(), vehicle.getVehicleNumber() != null ? vehicle.getVehicleNumber() : "Submission");
+        notificationService.createNotification(
+                "FREELANCER",
+                inspector.getEmail(),
+                id,
+                "Vehicle Submitted Successfully",
+                "Your vehicle submission for " + vTitle + " has been submitted to admin for approval.",
+                "SUBMITTED"
+        );
+        notificationService.createNotification(
+                "ADMIN",
+                null,
+                id,
+                "New Freelancer Vehicle Submitted",
+                "Freelancer " + inspector.getFullName() + " submitted vehicle " + vTitle + " for review.",
+                "SUBMITTED"
+        );
     }
 
     @Override
@@ -761,6 +779,20 @@ public class InspectionServiceImpl implements InspectionService {
         }
 
         inspectionRepository.save(ins);
+
+        if (ins.getInspector() != null && ins.getInspector().getEmail() != null) {
+            String submitterEmail = ins.getInspector().getEmail();
+            String roleStr = ins.getInspector().getRole() != null ? ins.getInspector().getRole().name() : "INSPECTOR";
+            String vTitle = v != null ? String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber()) : "Vehicle #" + id;
+            notificationService.createNotification(
+                    roleStr,
+                    submitterEmail,
+                    id,
+                    "Vehicle Report Approved!",
+                    "Your vehicle submission for " + vTitle + " has been approved by admin and is ready for live auction.",
+                    "APPROVED"
+            );
+        }
     }
 
     @Override
@@ -777,6 +809,21 @@ public class InspectionServiceImpl implements InspectionService {
         ins.setRejectionReason(reason);
         ins.setUpdatedAt(LocalDateTime.now());
         inspectionRepository.save(ins);
+
+        if (ins.getInspector() != null && ins.getInspector().getEmail() != null) {
+            String submitterEmail = ins.getInspector().getEmail();
+            String roleStr = ins.getInspector().getRole() != null ? ins.getInspector().getRole().name() : "INSPECTOR";
+            Vehicle v = ins.getVehicle();
+            String vTitle = v != null ? String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber()) : "Vehicle #" + id;
+            notificationService.createNotification(
+                    roleStr,
+                    submitterEmail,
+                    id,
+                    "Vehicle Submission Rejected",
+                    "Your vehicle submission for " + vTitle + " has been rejected by admin. Reason: " + (reason != null ? reason : "Needs revision"),
+                    "REJECTED"
+            );
+        }
     }
 
     @Override
