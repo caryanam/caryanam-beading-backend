@@ -92,28 +92,54 @@ public class FreelancerInspectionController {
     }
 
     @GetMapping("")
-    @Operation(summary = "Get list of all submissions for logged-in freelancer or admin")
+    @Operation(summary = "Get list of all freelancer vehicle submissions (Accessible to ALL roles)")
     public ResponseEntity<ApiResponse<List<FreelancerVehicleResponse>>> getMyInspections(
             @AuthenticationPrincipal UserDetails userDetails) {
         
-        if (userDetails != null && userDetails.getAuthorities() != null &&
-            userDetails.getAuthorities().stream().anyMatch(a -> a.getAuthority().equalsIgnoreCase("ROLE_ADMIN") || a.getAuthority().equalsIgnoreCase("ADMIN"))) {
+        if (userDetails == null) {
             List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
             return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
                     .success(true)
-                    .message("Freelancer submissions retrieved successfully for admin.")
+                    .message("All freelancer submissions retrieved successfully.")
                     .data(adminResponse)
                     .build());
         }
 
-        Inspector inspector = getFreelancer(userDetails);
-        List<FreelancerVehicleResponse> response = inspectionService.getFreelancerSubmissions(inspector.getId());
-        
-        return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
-                .success(true)
-                .message("Submissions retrieved successfully.")
-                .data(response)
-                .build());
+        boolean isNonFreelancerRole = userDetails.getAuthorities() != null &&
+            userDetails.getAuthorities().stream().anyMatch(a -> 
+                a.getAuthority().equalsIgnoreCase("ROLE_ADMIN") || 
+                a.getAuthority().equalsIgnoreCase("ADMIN") ||
+                a.getAuthority().equalsIgnoreCase("ROLE_DEALER") || 
+                a.getAuthority().equalsIgnoreCase("DEALER") ||
+                a.getAuthority().equalsIgnoreCase("ROLE_INSPECTOR") ||
+                a.getAuthority().equalsIgnoreCase("INSPECTOR")
+            );
+
+        if (isNonFreelancerRole) {
+            List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+            return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                    .success(true)
+                    .message("All freelancer submissions retrieved successfully.")
+                    .data(adminResponse)
+                    .build());
+        }
+
+        try {
+            Inspector inspector = getFreelancer(userDetails);
+            List<FreelancerVehicleResponse> response = inspectionService.getFreelancerSubmissions(inspector.getId());
+            return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                    .success(true)
+                    .message("Submissions retrieved successfully.")
+                    .data(response)
+                    .build());
+        } catch (Exception e) {
+            List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+            return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                    .success(true)
+                    .message("All freelancer submissions retrieved successfully.")
+                    .data(adminResponse)
+                    .build());
+        }
     }
 
     @GetMapping("/stats")

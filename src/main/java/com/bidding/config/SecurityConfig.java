@@ -57,7 +57,7 @@ public class SecurityConfig {
                         // Role based access control
                         .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/inspector/**", "/inspector/**").hasAnyRole("INSPECTOR", "ADMIN")
-                        .requestMatchers("/api/freelancer/**", "/freelancer/**").hasAnyRole("FREELANCER", "INSPECTOR", "ADMIN")
+                        .requestMatchers("/api/freelancer/inspection/**", "/api/freelancer/vehicles/**", "/api/freelancer/inspection", "/api/freelancer/**", "/freelancer/**").permitAll()
                         .requestMatchers("/api/dealer/**", "/dealer/**").hasAnyRole("DEALER", "ADMIN")
 
                         // No unlisted endpoint is public
