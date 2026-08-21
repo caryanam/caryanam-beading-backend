@@ -13,11 +13,11 @@ import java.util.List;
 public interface InspectionImageRepository extends JpaRepository<InspectionImage, Long> {
     List<InspectionImage> findByInspectionId(Long inspectionId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM InspectionImage im WHERE im.inspection.id = :inspectionId AND im.imageCategory = :category")
     void deleteByInspectionIdAndImageCategory(@Param("inspectionId") Long inspectionId, @Param("category") String category);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM InspectionImage im WHERE im.inspection.id = :inspectionId")
     void deleteByInspectionId(@Param("inspectionId") Long inspectionId);
 }

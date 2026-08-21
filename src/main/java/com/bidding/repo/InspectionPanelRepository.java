@@ -13,7 +13,7 @@ import java.util.List;
 public interface InspectionPanelRepository extends JpaRepository<InspectionPanel, Long> {
     List<InspectionPanel> findByInspectionId(Long inspectionId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM InspectionPanel ip WHERE ip.inspection.id = :inspectionId")
     void deleteByInspectionId(@Param("inspectionId") Long inspectionId);
 }

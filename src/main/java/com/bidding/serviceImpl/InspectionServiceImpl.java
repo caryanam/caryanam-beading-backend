@@ -1010,12 +1010,11 @@ public class InspectionServiceImpl implements InspectionService {
         Inspection inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
 
-        // Delete all dependent child records
-        inspectionPanelRepository.deleteByInspectionId(id);
-        mechanicalInspectionRepository.deleteByInspectionId(id);
-        tyreInspectionRepository.deleteByInspectionId(id);
-        interiorInspectionRepository.deleteByInspectionId(id);
-        inspectionRemarksRepository.deleteByInspectionId(id);
+        if (inspection.getStatus() != InspectionStatus.DRAFT && inspection.getStatus() != InspectionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Only draft vehicles can be deleted.");
+        }
+
+        Long vehicleId = inspection.getVehicle() != null ? inspection.getVehicle().getId() : null;
 
         // Delete files from disk for this inspection
         List<InspectionImage> images = inspectionImageRepository.findByInspectionId(id);
@@ -1031,17 +1030,21 @@ public class InspectionServiceImpl implements InspectionService {
                 }
             }
         }
-        
-        // Delete image DB records
+
+        // Delete all dependent child records from DB
+        inspectionPanelRepository.deleteByInspectionId(id);
+        mechanicalInspectionRepository.deleteByInspectionId(id);
+        tyreInspectionRepository.deleteByInspectionId(id);
+        interiorInspectionRepository.deleteByInspectionId(id);
+        inspectionRemarksRepository.deleteByInspectionId(id);
         inspectionImageRepository.deleteByInspectionId(id);
 
-        // Delete inspection itself
-        inspectionRepository.delete(inspection);
+        // Delete inspection itself by ID
+        inspectionRepository.deleteById(id);
 
-        // Delete vehicle
-        Vehicle vehicle = inspection.getVehicle();
-        if (vehicle != null) {
-            vehicleRepository.delete(vehicle);
+        // Delete vehicle by ID if attached
+        if (vehicleId != null) {
+            vehicleRepository.deleteById(vehicleId);
         }
     }
 

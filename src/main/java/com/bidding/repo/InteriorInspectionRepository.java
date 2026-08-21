@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface InteriorInspectionRepository extends JpaRepository<InteriorInspection, Long> {
     Optional<InteriorInspection> findByInspectionId(Long inspectionId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM InteriorInspection ii WHERE ii.inspection.id = :inspectionId")
     void deleteByInspectionId(@Param("inspectionId") Long inspectionId);
 }
