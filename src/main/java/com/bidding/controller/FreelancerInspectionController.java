@@ -188,7 +188,7 @@ public class FreelancerInspectionController {
 
         String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "image.jpg";
         String lowerName = originalFilename.toLowerCase();
-        boolean isVideo = category.equalsIgnoreCase("Engine / Motor Noise") || lowerName.matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)$");
+        boolean isVideo = category.equalsIgnoreCase("Walkaround Video") || category.toLowerCase().contains("video") || lowerName.matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)$");
 
         if (!isVideo) {
             boolean isAvif = lowerName.endsWith(".avif") || (file.getContentType() != null && file.getContentType().contains("avif"));

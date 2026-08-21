@@ -808,9 +808,9 @@ public class InspectionServiceImpl implements InspectionService {
         if (img == null || img.getImageUrl() == null) return false;
         String cat = img.getImageCategory() != null ? img.getImageCategory().trim().toLowerCase() : "";
         String url = img.getImageUrl().trim().toLowerCase();
-        return cat.contains("video") || cat.equals("engine / motor noise")
-            || url.endsWith(".mp4") || url.endsWith(".webm") || url.endsWith(".mov")
-            || url.endsWith(".avi") || url.endsWith(".mkv") || url.endsWith(".3gp") || url.endsWith(".flv");
+        return cat.contains("video") || cat.equals("walkaround video")
+            || url.contains(".mp4") || url.contains(".webm") || url.contains(".mov")
+            || url.contains(".avi") || url.contains(".mkv") || url.contains(".3gp") || url.contains(".flv");
     }
 
     private boolean isCategoryMatch(String cat, PhotoType pt) {
@@ -903,19 +903,29 @@ public class InspectionServiceImpl implements InspectionService {
             }
         }
 
-        // 2. Map Videos list, dynamically matching uploaded video
+        // 2. Map Videos list, dynamically matching uploaded video across VideoType enum
         List<InspectionDetailsResponse.VideoResponseDTO> videoList = new ArrayList<>();
         InspectionImage uploadedVideoImg = images != null ? images.stream().filter(this::isVideoImage).findFirst().orElse(null) : null;
         String uploadedVideoUrl = uploadedVideoImg != null ? buildFullImageUrl(uploadedVideoImg.getImageUrl()) : null;
 
-        if (uploadedVideoUrl != null) {
-            videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
-                    .id(uploadedVideoImg.getId())
-                    .videoType(VideoType.VEHICLE_WALKAROUND.name())
-                    .displayName(VideoType.VEHICLE_WALKAROUND.getDisplayName())
-                    .videoUrl(uploadedVideoUrl)
-                    .captured(true)
-                    .build());
+        for (VideoType vt : VideoType.values()) {
+            if (uploadedVideoUrl != null) {
+                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                        .id(uploadedVideoImg.getId())
+                        .videoType(vt.name())
+                        .displayName(vt.getDisplayName())
+                        .videoUrl(uploadedVideoUrl)
+                        .captured(true)
+                        .build());
+            } else {
+                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                        .id(null)
+                        .videoType(vt.name())
+                        .displayName(vt.getDisplayName())
+                        .videoUrl(null)
+                        .captured(false)
+                        .build());
+            }
         }
 
         // 3. Map Ratings sub-DTO (null if no ratings present)
