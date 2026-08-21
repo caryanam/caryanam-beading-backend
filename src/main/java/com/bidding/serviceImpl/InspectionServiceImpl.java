@@ -165,6 +165,7 @@ public class InspectionServiceImpl implements InspectionService {
             if (vDto.getDuplicateKey() != null) vehicle.setDuplicateKey(vDto.getDuplicateKey());
             if (vDto.getRtoNocIssued() != null) vehicle.setRtoNocIssued(vDto.getRtoNocIssued());
             if (vDto.getUnderHypothecation() != null) vehicle.setUnderHypothecation(vDto.getUnderHypothecation());
+            if (vDto.getAccidental() != null) vehicle.setAccidental(vDto.getAccidental());
             if (vDto.getMismatchInRc() != null) vehicle.setMismatchInRc(vDto.getMismatchInRc());
             if (vDto.getRoadTaxPaid() != null) vehicle.setRoadTaxPaid(vDto.getRoadTaxPaid());
             if (vDto.getFitnessUpto() != null) vehicle.setFitnessUpto(vDto.getFitnessUpto());
@@ -541,6 +542,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .duplicateKey(v != null ? v.getDuplicateKey() : null)
                             .rtoNocIssued(v != null ? v.getRtoNocIssued() : null)
                             .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .accidental(v != null ? v.getAccidental() : null)
                             .mismatchInRc(v != null ? v.getMismatchInRc() : null)
                             .roadTaxPaid(v != null ? v.getRoadTaxPaid() : null)
                             .fitnessUpto(v != null ? v.getFitnessUpto() : null)
@@ -584,6 +586,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .duplicateKey(v != null ? v.getDuplicateKey() : null)
                             .rtoNocIssued(v != null ? v.getRtoNocIssued() : null)
                             .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .accidental(v != null ? v.getAccidental() : null)
                             .mismatchInRc(v != null ? v.getMismatchInRc() : null)
                             .roadTaxPaid(v != null ? v.getRoadTaxPaid() : null)
                             .fitnessUpto(v != null ? v.getFitnessUpto() : null)
@@ -636,6 +639,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
                             .location(v != null ? v.getLocation() : null)
                             .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .accidental(v != null ? v.getAccidental() : null)
                             .rtoInformation(v != null ? v.getRtoInformation() : null)
                             .status(ins.getStatus())
                             .rejectionReason(ins.getRejectionReason())
@@ -783,10 +787,12 @@ public class InspectionServiceImpl implements InspectionService {
 
         for (PhotoType pt : PhotoType.values()) {
             InspectionImage matchingImg = null;
-            for (InspectionImage img : images) {
-                if (isCategoryMatch(img.getImageCategory(), pt)) {
-                    matchingImg = img;
-                    break;
+            if (images != null) {
+                for (InspectionImage img : images) {
+                    if (isCategoryMatch(img.getImageCategory(), pt)) {
+                        matchingImg = img;
+                        break;
+                    }
                 }
             }
 
@@ -801,15 +807,6 @@ public class InspectionServiceImpl implements InspectionService {
                         .imageCategory(matchingImg.getImageCategory())
                         .imageUrl(finalUrl)
                         .captured(true)
-                        .build());
-            } else {
-                photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
-                        .id(null)
-                        .photoType(pt.name())
-                        .displayName(pt.getDisplayName())
-                        .imageCategory(null)
-                        .imageUrl(null)
-                        .captured(false)
                         .build());
             }
         }
@@ -830,56 +827,37 @@ public class InspectionServiceImpl implements InspectionService {
             }
         }
 
-        // 2. Map Videos list, dynamically matching uploaded video or fallback
+        // 2. Map Videos list, dynamically matching uploaded video
         List<InspectionDetailsResponse.VideoResponseDTO> videoList = new ArrayList<>();
         InspectionImage uploadedVideoImg = images != null ? images.stream().filter(this::isVideoImage).findFirst().orElse(null) : null;
         String uploadedVideoUrl = uploadedVideoImg != null ? buildFullImageUrl(uploadedVideoImg.getImageUrl()) : null;
 
-        for (VideoType vt : VideoType.values()) {
-            if (vt == VideoType.VEHICLE_WALKAROUND) {
-                if (uploadedVideoUrl != null) {
-                    videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
-                            .id(uploadedVideoImg.getId())
-                            .videoType(vt.name())
-                            .displayName(vt.getDisplayName())
-                            .videoUrl(uploadedVideoUrl)
-                            .captured(true)
-                            .build());
-                } else {
-                    String defaultVideoUrl = baseUrl + "/" + uploadDir + "/" + carVideoFolder + "/car.mp4";
-                    videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
-                            .id(1L)
-                            .videoType(vt.name())
-                            .displayName(vt.getDisplayName())
-                            .videoUrl(defaultVideoUrl)
-                            .captured(true)
-                            .build());
-                }
-            } else {
-                // Not captured
-                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
-                        .id(null)
-                        .videoType(vt.name())
-                        .displayName(vt.getDisplayName())
-                        .videoUrl(null)
-                        .captured(false)
-                        .build());
-            }
+        if (uploadedVideoUrl != null) {
+            videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                    .id(uploadedVideoImg.getId())
+                    .videoType(VideoType.VEHICLE_WALKAROUND.name())
+                    .displayName(VideoType.VEHICLE_WALKAROUND.getDisplayName())
+                    .videoUrl(uploadedVideoUrl)
+                    .captured(true)
+                    .build());
         }
 
-        // 3. Map Ratings sub-DTO
-        InspectionDetailsResponse.RatingsResponseDTO ratingsDto = InspectionDetailsResponse.RatingsResponseDTO.builder()
-                .exterior(ins.getExteriorRating())
-                .mechanical(ins.getMechanicalRating())
-                .tyre(ins.getTyreRating())
-                .interior(ins.getInteriorRating())
-                .exteriorRating(ins.getExteriorRating())
-                .mechanicalRating(ins.getMechanicalRating())
-                .tyreRating(ins.getTyreRating())
-                .interiorRating(ins.getInteriorRating())
-                .build();
+        // 3. Map Ratings sub-DTO (null if no ratings present)
+        InspectionDetailsResponse.RatingsResponseDTO ratingsDto = null;
+        if (ins.getExteriorRating() != null || ins.getMechanicalRating() != null || ins.getTyreRating() != null || ins.getInteriorRating() != null) {
+            ratingsDto = InspectionDetailsResponse.RatingsResponseDTO.builder()
+                    .exterior(ins.getExteriorRating())
+                    .mechanical(ins.getMechanicalRating())
+                    .tyre(ins.getTyreRating())
+                    .interior(ins.getInteriorRating())
+                    .exteriorRating(ins.getExteriorRating())
+                    .mechanicalRating(ins.getMechanicalRating())
+                    .tyreRating(ins.getTyreRating())
+                    .interiorRating(ins.getInteriorRating())
+                    .build();
+        }
 
-        List<BidResponseDTO> bids = bidRepository.findByInspectionIdOrderByAmountDesc(ins.getId()).stream()
+        List<BidResponseDTO> bidsList = bidRepository.findByInspectionIdOrderByAmountDesc(ins.getId()).stream()
                 .map(b -> BidResponseDTO.builder()
                         .dealer(maskDealerName(b.getDealer() != null && b.getDealer().getDealershipName() != null ? b.getDealer().getDealershipName() : (b.getDealer() != null ? b.getDealer().getOwnerName() : "Dealer")))
                         .dealerId(b.getDealer() != null ? b.getDealer().getId() : null)
@@ -889,6 +867,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .time(formatTime(b.getCreatedAt()))
                         .build())
                 .collect(Collectors.toList());
+        List<BidResponseDTO> bids = bidsList.isEmpty() ? null : bidsList;
 
         return InspectionDetailsResponse.builder()
                 .inspectionId(ins.getId())
@@ -924,6 +903,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .duplicateKey(v.getDuplicateKey())
                         .rtoNocIssued(v.getRtoNocIssued())
                         .underHypothecation(v.getUnderHypothecation())
+                        .accidental(v.getAccidental())
                         .mismatchInRc(v.getMismatchInRc())
                         .roadTaxPaid(v.getRoadTaxPaid())
                         .fitnessUpto(v.getFitnessUpto())
@@ -1021,8 +1001,17 @@ public class InspectionServiceImpl implements InspectionService {
                         .sensors(interior.getSensors())
                         .remarks(interior.getRemarks())
                         .build())
-                .inspectionPhotos(photoList)
-                .inspectionVideos(videoList)
+                .inspectionPhotos(photoList.isEmpty() ? null : photoList)
+                .inspectionVideos(videoList.isEmpty() ? null : videoList)
+                .exteriorPanelDetails((panels == null || panels.isEmpty()) ? null : panels.stream().map(p -> {
+                    String panelImg = buildFullImageUrl(p.getImageUrl());
+                    return InspectionDetailsResponse.PanelResponseDTO.builder()
+                            .id(p.getId())
+                            .panelName(p.getPanelName())
+                            .condition(p.getCondition())
+                            .imageUrl(panelImg != null && !panelImg.trim().isEmpty() ? panelImg : null)
+                            .build();
+                }).collect(Collectors.toList()))
                 .ratings(ratingsDto)
                 .bidHistory(bids)
                 .createdAt(ins.getCreatedAt())

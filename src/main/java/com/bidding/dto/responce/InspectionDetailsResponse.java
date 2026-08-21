@@ -67,6 +67,7 @@ public class InspectionDetailsResponse {
         private String duplicateKey;
         private String rtoNocIssued;
         private String underHypothecation;
+        private String accidental;
         private String mismatchInRc;
         private String roadTaxPaid;
         private String fitnessUpto;

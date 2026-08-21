@@ -75,6 +75,9 @@ public class Vehicle {
     @Column(name = "under_hypothecation")
     private String underHypothecation;
 
+    @Column(name = "accidental")
+    private String accidental;
+
     @Column(name = "mismatch_in_rc")
     private String mismatchInRc;
 
