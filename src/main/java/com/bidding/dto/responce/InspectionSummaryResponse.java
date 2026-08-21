@@ -21,6 +21,7 @@ public class InspectionSummaryResponse {
     private InspectionStatus status;
     private LocalDateTime submittedAt;
     private String inspectorName;
+    private String freelancerName;
     private Double suggestedPrice;
     private String rejectionReason;
     private String vehicleImage;

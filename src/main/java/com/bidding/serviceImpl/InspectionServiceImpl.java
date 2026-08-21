@@ -517,7 +517,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .variant(v != null ? v.getVariant() : "N/A")
                             .status(ins.getStatus())
                             .submittedAt(ins.getSubmittedAt())
-                            .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : "N/A")
+                            .inspectorName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
+.freelancerName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
@@ -570,7 +571,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .variant(v != null ? v.getVariant() : "N/A")
                             .status(ins.getStatus())
                             .submittedAt(ins.getSubmittedAt())
-                            .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : "N/A")
+                            .inspectorName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
+.freelancerName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
@@ -649,6 +651,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .videoUrl(videoUrl)
                             .createdAt(ins.getCreatedAt())
                             .submittedAt(ins.getSubmittedAt())
+                            .freelancerName(ins.getInspector() != null ? ins.getInspector().getFullName() : null)
+                            .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : null)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -709,8 +713,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .videoUrl(videoUrl)
                             .createdAt(ins.getCreatedAt())
                             .submittedAt(ins.getSubmittedAt())
-                            .freelancerName(ins.getInspector() != null ? ins.getInspector().getFullName() : "Freelancer")
-                            .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : "Freelancer")
+                            .freelancerName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Freelancer"))
+                            .inspectorName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Freelancer"))
                             .build();
                 })
                 .collect(Collectors.toList());
