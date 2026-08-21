@@ -875,6 +875,15 @@ public class InspectionServiceImpl implements InspectionService {
                         .imageUrl(finalUrl)
                         .captured(true)
                         .build());
+            } else {
+                photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
+                        .id(null)
+                        .photoType(pt.name())
+                        .displayName(pt.getDisplayName())
+                        .imageCategory(pt.getDisplayName())
+                        .imageUrl(null)
+                        .captured(false)
+                        .build());
             }
         }
 

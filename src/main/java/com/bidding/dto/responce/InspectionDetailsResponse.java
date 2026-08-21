@@ -31,6 +31,9 @@ public class InspectionDetailsResponse {
 
     private List<PhotoResponseDTO> inspectionPhotos;
     private List<VideoResponseDTO> inspectionVideos;
+    private List<String> photos;
+    private String videoUrl;
+
 
     private RatingsResponseDTO ratings;
     private List<BidResponseDTO> bidHistory;
