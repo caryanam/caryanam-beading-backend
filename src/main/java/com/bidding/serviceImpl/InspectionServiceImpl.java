@@ -1342,15 +1342,19 @@ public class InspectionServiceImpl implements InspectionService {
                     }
                     return true;
                 })
-                .map(v -> com.bidding.dto.responce.DealerWonBidDTO.builder()
-                        .vehicleId(v.getId())
-                        .vehicleNumber(v.getVehicleNumber())
-                        .brand(v.getBrand())
-                        .model(v.getModel())
-                        .variant(v.getVariant())
-                        .winningBidAmount(v.getCurrentHighestBid())
-                        .status(v.getVehicleStatus())
-                        .build())
+                .map(v -> {
+                    Inspection ins = inspectionRepository.findByVehicleId(v.getId()).orElse(null);
+                    Long inspectionId = ins != null ? ins.getId() : v.getId();
+                    return com.bidding.dto.responce.DealerWonBidDTO.builder()
+                            .vehicleId(inspectionId)
+                            .vehicleNumber(v.getVehicleNumber())
+                            .brand(v.getBrand())
+                            .model(v.getModel())
+                            .variant(v.getVariant())
+                            .winningBidAmount(v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0)
+                            .status(v.getVehicleStatus() != null ? v.getVehicleStatus() : "SOLD OUT")
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
@@ -1538,14 +1542,19 @@ public class InspectionServiceImpl implements InspectionService {
     @Override
     @Transactional
     public void updateVehicleStatus(Long id, String vehicleStatus) {
-        Inspection ins = inspectionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
-        Vehicle v = ins.getVehicle();
+        Inspection ins = inspectionRepository.findById(id).orElse(null);
+        Vehicle v = (ins != null) ? ins.getVehicle() : vehicleRepository.findById(id).orElse(null);
+
+        if (v == null && ins == null) {
+            throw new ResourceNotFoundException("Inspection or Vehicle not found with id: " + id);
+        }
+
         if (v != null) {
             v.setVehicleStatus(vehicleStatus);
             if ("SOLD OUT".equalsIgnoreCase(vehicleStatus) || "SOLD".equalsIgnoreCase(vehicleStatus)) {
                 if (v.getCurrentHighestBidder() == null) {
-                    com.bidding.entity.Bid topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(id).orElse(null);
+                    Long targetId = ins != null ? ins.getId() : id;
+                    com.bidding.entity.Bid topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(targetId).orElse(null);
                     if (topBid != null && topBid.getDealer() != null) {
                         v.setCurrentHighestBidder(topBid.getDealer());
                         if (v.getCurrentHighestBid() == null || v.getCurrentHighestBid() == 0.0) {
