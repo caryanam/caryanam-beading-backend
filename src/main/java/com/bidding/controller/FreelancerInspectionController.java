@@ -92,10 +92,20 @@ public class FreelancerInspectionController {
     }
 
     @GetMapping("")
-    @Operation(summary = "Get list of all submissions for logged-in freelancer")
+    @Operation(summary = "Get list of all submissions for logged-in freelancer or admin")
     public ResponseEntity<ApiResponse<List<FreelancerVehicleResponse>>> getMyInspections(
             @AuthenticationPrincipal UserDetails userDetails) {
         
+        if (userDetails != null && userDetails.getAuthorities() != null &&
+            userDetails.getAuthorities().stream().anyMatch(a -> a.getAuthority().equalsIgnoreCase("ROLE_ADMIN") || a.getAuthority().equalsIgnoreCase("ADMIN"))) {
+            List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+            return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                    .success(true)
+                    .message("Freelancer submissions retrieved successfully for admin.")
+                    .data(adminResponse)
+                    .build());
+        }
+
         Inspector inspector = getFreelancer(userDetails);
         List<FreelancerVehicleResponse> response = inspectionService.getFreelancerSubmissions(inspector.getId());
         

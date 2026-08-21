@@ -42,4 +42,6 @@ public class FreelancerVehicleResponse {
     private String videoUrl;
     private LocalDateTime createdAt;
     private LocalDateTime submittedAt;
+    private String freelancerName;
+    private String inspectorName;
 }

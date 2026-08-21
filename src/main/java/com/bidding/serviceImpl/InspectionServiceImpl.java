@@ -502,6 +502,7 @@ public class InspectionServiceImpl implements InspectionService {
     public List<InspectionSummaryResponse> getAllInspections() {
         return inspectionRepository.findAll().stream()
                 .filter(ins -> ins.getStatus() != InspectionStatus.DRAFT && ins.getStatus() != InspectionStatus.IN_PROGRESS)
+                .filter(ins -> ins.getInspector() == null || ins.getInspector().getRole() == com.bidding.enums.Role.INSPECTOR)
                 .map(ins -> {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
@@ -648,6 +649,68 @@ public class InspectionServiceImpl implements InspectionService {
                             .videoUrl(videoUrl)
                             .createdAt(ins.getCreatedAt())
                             .submittedAt(ins.getSubmittedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FreelancerVehicleResponse> getAllFreelancerSubmissionsForAdmin() {
+        return inspectionRepository.findAll().stream()
+                .filter(ins -> ins.getStatus() != InspectionStatus.DRAFT && ins.getStatus() != InspectionStatus.IN_PROGRESS)
+                .filter(ins -> ins.getInspector() != null && ins.getInspector().getRole() == com.bidding.enums.Role.FREELANCER)
+                .map(ins -> {
+                    Vehicle v = ins.getVehicle();
+                    List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
+
+                    String videoUrl = null;
+                    List<String> photoUrls = new ArrayList<>();
+                    if (images != null) {
+                        for (InspectionImage img : images) {
+                            String fullUrl = buildFullImageUrl(img.getImageUrl());
+                            if (isVideoImage(img)) {
+                                if (videoUrl == null) {
+                                    videoUrl = fullUrl;
+                                }
+                            } else {
+                                photoUrls.add(fullUrl);
+                            }
+                        }
+                    }
+                    String firstImgUrl = !photoUrls.isEmpty() ? photoUrls.get(0) : (videoUrl != null ? videoUrl : null);
+
+                    return FreelancerVehicleResponse.builder()
+                            .id(ins.getId())
+                            .inspectionId(ins.getId())
+                            .registrationNumber(v != null ? v.getVehicleNumber() : null)
+                            .vehicleNumber(v != null ? v.getVehicleNumber() : null)
+                            .customerName(v != null ? v.getCustomerName() : null)
+                            .customerMobileNumber(v != null ? v.getCustomerMobileNumber() : null)
+                            .brand(v != null ? v.getBrand() : null)
+                            .model(v != null ? v.getModel() : null)
+                            .variant(v != null ? v.getVariant() : null)
+                            .manufacturingYear(v != null ? v.getManufacturingYear() : null)
+                            .registrationYear(v != null ? v.getRegistrationYear() : null)
+                            .fuelType(v != null ? v.getFuelType() : null)
+                            .transmission(v != null ? v.getTransmission() : null)
+                            .odometerReading(v != null ? v.getOdometerReading() : null)
+                            .ownerName(v != null ? v.getOwnerName() : null)
+                            .insuranceStatus(v != null ? v.getInsuranceStatus() : null)
+                            .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .location(v != null ? v.getLocation() : null)
+                            .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .accidental(v != null ? v.getAccidental() : null)
+                            .rtoInformation(v != null ? v.getRtoInformation() : null)
+                            .status(ins.getStatus())
+                            .rejectionReason(ins.getRejectionReason())
+                            .vehicleImage(firstImgUrl)
+                            .photos(photoUrls)
+                            .videoUrl(videoUrl)
+                            .createdAt(ins.getCreatedAt())
+                            .submittedAt(ins.getSubmittedAt())
+                            .freelancerName(ins.getInspector() != null ? ins.getInspector().getFullName() : "Freelancer")
+                            .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : "Freelancer")
                             .build();
                 })
                 .collect(Collectors.toList());

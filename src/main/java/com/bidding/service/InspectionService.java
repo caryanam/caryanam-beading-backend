@@ -26,6 +26,8 @@ public interface InspectionService {
 
     List<FreelancerVehicleResponse> getFreelancerSubmissions(Long inspectorId);
 
+    List<FreelancerVehicleResponse> getAllFreelancerSubmissionsForAdmin();
+
     void approveInspection(Long id);
 
     void rejectInspection(Long id, String reason);
