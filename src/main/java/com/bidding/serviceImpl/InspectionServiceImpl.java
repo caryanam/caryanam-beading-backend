@@ -903,29 +903,27 @@ public class InspectionServiceImpl implements InspectionService {
             }
         }
 
-        // 2. Map Videos list, dynamically matching uploaded video across VideoType enum
+        // 2. Map Videos list, returning only 1 video entry for the uploaded walkaround video
         List<InspectionDetailsResponse.VideoResponseDTO> videoList = new ArrayList<>();
         InspectionImage uploadedVideoImg = images != null ? images.stream().filter(this::isVideoImage).findFirst().orElse(null) : null;
         String uploadedVideoUrl = uploadedVideoImg != null ? buildFullImageUrl(uploadedVideoImg.getImageUrl()) : null;
 
-        for (VideoType vt : VideoType.values()) {
-            if (uploadedVideoUrl != null) {
-                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
-                        .id(uploadedVideoImg.getId())
-                        .videoType(vt.name())
-                        .displayName(vt.getDisplayName())
-                        .videoUrl(uploadedVideoUrl)
-                        .captured(true)
-                        .build());
-            } else {
-                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
-                        .id(null)
-                        .videoType(vt.name())
-                        .displayName(vt.getDisplayName())
-                        .videoUrl(null)
-                        .captured(false)
-                        .build());
-            }
+        if (uploadedVideoUrl != null) {
+            videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                    .id(uploadedVideoImg.getId())
+                    .videoType(VideoType.VEHICLE_WALKAROUND.name())
+                    .displayName(VideoType.VEHICLE_WALKAROUND.getDisplayName())
+                    .videoUrl(uploadedVideoUrl)
+                    .captured(true)
+                    .build());
+        } else {
+            videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                    .id(null)
+                    .videoType(VideoType.VEHICLE_WALKAROUND.name())
+                    .displayName(VideoType.VEHICLE_WALKAROUND.getDisplayName())
+                    .videoUrl(null)
+                    .captured(false)
+                    .build());
         }
 
         // 3. Map Ratings sub-DTO (null if no ratings present)
