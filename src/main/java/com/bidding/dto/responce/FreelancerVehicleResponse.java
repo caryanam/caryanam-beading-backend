@@ -36,6 +36,16 @@ public class FreelancerVehicleResponse {
     private String accidental;
     private String rtoInformation;
     private InspectionStatus status;
+    private String vehicleStatus;
+    private Double currentHighestBid;
+    private String currentHighestBidder;
+    private Long auctionEndTime;
+    private Integer totalBids;
+    private Boolean sellerAgreed;
+    private Double sellerCounterPrice;
+    private String sellerMessage;
+    private String adminDealerMessage;
+    private String dealerReplyMessage;
     private String rejectionReason;
     private String vehicleImage;
     private List<String> photos;
