@@ -599,8 +599,22 @@ public class InspectionServiceImpl implements InspectionService {
                 .map(ins -> {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
-                    String imgUrl = (images != null && !images.isEmpty()) ? buildFullImageUrl(images.get(0).getImageUrl()) : null;
-                    List<String> photoUrls = (images != null) ? images.stream().map(img -> buildFullImageUrl(img.getImageUrl())).collect(Collectors.toList()) : Collections.emptyList();
+
+                    String videoUrl = null;
+                    List<String> photoUrls = new ArrayList<>();
+                    if (images != null) {
+                        for (InspectionImage img : images) {
+                            String fullUrl = buildFullImageUrl(img.getImageUrl());
+                            if (isVideoImage(img)) {
+                                if (videoUrl == null) {
+                                    videoUrl = fullUrl;
+                                }
+                            } else {
+                                photoUrls.add(fullUrl);
+                            }
+                        }
+                    }
+                    String firstImgUrl = !photoUrls.isEmpty() ? photoUrls.get(0) : (videoUrl != null ? videoUrl : null);
 
                     return FreelancerVehicleResponse.builder()
                             .id(ins.getId())
@@ -625,8 +639,9 @@ public class InspectionServiceImpl implements InspectionService {
                             .rtoInformation(v != null ? v.getRtoInformation() : null)
                             .status(ins.getStatus())
                             .rejectionReason(ins.getRejectionReason())
-                            .vehicleImage(imgUrl)
+                            .vehicleImage(firstImgUrl)
                             .photos(photoUrls)
+                            .videoUrl(videoUrl)
                             .createdAt(ins.getCreatedAt())
                             .submittedAt(ins.getSubmittedAt())
                             .build();
@@ -718,6 +733,15 @@ public class InspectionServiceImpl implements InspectionService {
         inspectionImageRepository.save(image);
     }
 
+        private boolean isVideoImage(InspectionImage img) {
+        if (img == null || img.getImageUrl() == null) return false;
+        String cat = img.getImageCategory() != null ? img.getImageCategory().trim().toLowerCase() : "";
+        String url = img.getImageUrl().trim().toLowerCase();
+        return cat.contains("video") || cat.equals("engine / motor noise")
+            || url.endsWith(".mp4") || url.endsWith(".webm") || url.endsWith(".mov")
+            || url.endsWith(".avi") || url.endsWith(".mkv") || url.endsWith(".3gp") || url.endsWith(".flv");
+    }
+
     private boolean isCategoryMatch(String cat, PhotoType pt) {
         if (cat == null) return false;
         String cleanCat = cat.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
@@ -792,7 +816,7 @@ public class InspectionServiceImpl implements InspectionService {
 
         // Include any remaining images uploaded for custom categories or specific panels
         for (InspectionImage img : images) {
-            if (img.getId() != null && !mappedImageIds.contains(img.getId())) {
+            if (img.getId() != null && !mappedImageIds.contains(img.getId()) && !isVideoImage(img)) {
                 String rawUrl = img.getImageUrl();
                 String finalUrl = buildFullImageUrl(rawUrl);
                 photoList.add(InspectionDetailsResponse.PhotoResponseDTO.builder()
@@ -806,19 +830,31 @@ public class InspectionServiceImpl implements InspectionService {
             }
         }
 
-        // 2. Map Videos list, dynamically matching all VideoType enum values
+        // 2. Map Videos list, dynamically matching uploaded video or fallback
         List<InspectionDetailsResponse.VideoResponseDTO> videoList = new ArrayList<>();
+        InspectionImage uploadedVideoImg = images != null ? images.stream().filter(this::isVideoImage).findFirst().orElse(null) : null;
+        String uploadedVideoUrl = uploadedVideoImg != null ? buildFullImageUrl(uploadedVideoImg.getImageUrl()) : null;
+
         for (VideoType vt : VideoType.values()) {
             if (vt == VideoType.VEHICLE_WALKAROUND) {
-                // Return default/placeholder walkaround video URL
-                String defaultVideoUrl = baseUrl + "/" + uploadDir + "/" + carVideoFolder + "/car.mp4";
-                videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
-                        .id(1L)
-                        .videoType(vt.name())
-                        .displayName(vt.getDisplayName())
-                        .videoUrl(defaultVideoUrl)
-                        .captured(true)
-                        .build());
+                if (uploadedVideoUrl != null) {
+                    videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                            .id(uploadedVideoImg.getId())
+                            .videoType(vt.name())
+                            .displayName(vt.getDisplayName())
+                            .videoUrl(uploadedVideoUrl)
+                            .captured(true)
+                            .build());
+                } else {
+                    String defaultVideoUrl = baseUrl + "/" + uploadDir + "/" + carVideoFolder + "/car.mp4";
+                    videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
+                            .id(1L)
+                            .videoType(vt.name())
+                            .displayName(vt.getDisplayName())
+                            .videoUrl(defaultVideoUrl)
+                            .captured(true)
+                            .build());
+                }
             } else {
                 // Not captured
                 videoList.add(InspectionDetailsResponse.VideoResponseDTO.builder()
