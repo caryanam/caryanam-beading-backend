@@ -199,7 +199,7 @@ public class BiddingServiceImpl implements BiddingService {
                             .model(v != null ? v.getModel() : "N/A")
                             .regNo(v != null ? v.getVehicleNumber() : "N/A")
                             .myBid(b.getAmount())
-                            .highestBid(v != null ? v.getCurrentHighestBid() : 0.0)
+                            .highestBid(v != null ? (v.getCurrentHighestBid() != null && v.getCurrentHighestBid() > 0.0 ? v.getCurrentHighestBid() : bidRepository.findFirstByInspectionIdOrderByAmountDesc(ins.getId()).map(Bid::getAmount).orElse(v.getSuggestedPrice() != null ? v.getSuggestedPrice() : 0.0)) : 0.0)
                             .totalBids(v != null ? v.getTotalBids() : 0)
                             .timestamp(formatTime(b.getCreatedAt()))
                             .status(statusStr)

@@ -69,4 +69,8 @@ public interface InspectionService {
     void submitDealerReply(Long id, String reply);
 
     void updateVehicleStatus(Long id, String vehicleStatus);
+
+    Double resolveCurrentHighestBid(com.bidding.entity.Vehicle v, Long inspectionId);
+
+    String resolveCurrentHighestBidder(com.bidding.entity.Vehicle v, Long inspectionId);
 }

@@ -103,6 +103,74 @@ public class InspectionServiceImpl implements InspectionService {
     }
 
     @Override
+    public Double resolveCurrentHighestBid(Vehicle v, Long inspectionId) {
+        if (v == null) {
+            return null;
+        }
+        if (v.getCurrentHighestBid() != null && v.getCurrentHighestBid() > 0.0) {
+            return v.getCurrentHighestBid();
+        }
+        if (inspectionId != null && bidRepository != null) {
+            Optional<Bid> topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(inspectionId);
+            if (topBid.isPresent() && topBid.get().getAmount() != null && topBid.get().getAmount() > 0.0) {
+                return topBid.get().getAmount();
+            }
+        }
+        return v.getSuggestedPrice() != null ? v.getSuggestedPrice() : 0.0;
+    }
+
+    @Override
+    public String resolveCurrentHighestBidder(Vehicle v, Long inspectionId) {
+        if (v == null) {
+            return null;
+        }
+        if (v.getCurrentHighestBidder() != null) {
+            return v.getCurrentHighestBidder().getDealershipName() != null ? 
+                    v.getCurrentHighestBidder().getDealershipName() : v.getCurrentHighestBidder().getOwnerName();
+        }
+        if (inspectionId != null && bidRepository != null) {
+            Optional<Bid> topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(inspectionId);
+            if (topBid.isPresent() && topBid.get().getDealer() != null) {
+                Dealer d = topBid.get().getDealer();
+                return d.getDealershipName() != null ? d.getDealershipName() : d.getOwnerName();
+            }
+        }
+        return null;
+    }
+
+    public Long resolveCurrentHighestBidderId(Vehicle v, Long inspectionId) {
+        if (v == null) {
+            return null;
+        }
+        if (v.getCurrentHighestBidder() != null) {
+            return v.getCurrentHighestBidder().getId();
+        }
+        if (inspectionId != null && bidRepository != null) {
+            Optional<Bid> topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(inspectionId);
+            if (topBid.isPresent() && topBid.get().getDealer() != null) {
+                return topBid.get().getDealer().getId();
+            }
+        }
+        return null;
+    }
+
+    public String resolveCurrentHighestBidderEmail(Vehicle v, Long inspectionId) {
+        if (v == null) {
+            return null;
+        }
+        if (v.getCurrentHighestBidder() != null) {
+            return v.getCurrentHighestBidder().getEmail();
+        }
+        if (inspectionId != null && bidRepository != null) {
+            Optional<Bid> topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(inspectionId);
+            if (topBid.isPresent() && topBid.get().getDealer() != null) {
+                return topBid.get().getDealer().getEmail();
+            }
+        }
+        return null;
+    }
+
+    @Override
     @Transactional
     public InspectionDetailsResponse saveDraft(InspectionDraftRequest request, Long inspectorId) {
         Inspector inspector = inspectorRepository.findById(inspectorId)
@@ -547,8 +615,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .transmission(v != null ? v.getTransmission() : "N/A")
                             .odometer(v != null ? v.getOdometerReading() : null)
                             .vehicleStatus(v != null ? v.getVehicleStatus() : null)
-                            .currentHighestBid(v != null ? v.getCurrentHighestBid() : null)
-                            .currentHighestBidder((v != null && v.getCurrentHighestBidder() != null) ? v.getCurrentHighestBidder().getDealershipName() : null)
+                            .currentHighestBid(resolveCurrentHighestBid(v, ins.getId()))
+                            .currentHighestBidder(resolveCurrentHighestBidder(v, ins.getId()))
                             .auctionEndTime((v != null && v.getAuctionEndTime() != null) ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
                             .totalBids(v != null ? v.getTotalBids() : null)
                             .sellerAgreed(v != null ? v.getSellerAgreed() : null)
@@ -601,6 +669,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .transmission(v != null ? v.getTransmission() : "N/A")
                             .odometer(v != null ? v.getOdometerReading() : null)
                             .vehicleStatus(v != null ? v.getVehicleStatus() : null)
+                            .currentHighestBid(resolveCurrentHighestBid(v, ins.getId()))
+                            .currentHighestBidder(resolveCurrentHighestBidder(v, ins.getId()))
                             .location(v != null ? v.getLocation() : null)
                             .rtoInformation(v != null ? v.getRtoInformation() : null)
                             .rsAvailability(v != null ? v.getRsAvailability() : null)
@@ -664,8 +734,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .rtoInformation(v != null ? v.getRtoInformation() : null)
                             .status(ins.getStatus())
                             .vehicleStatus(v != null ? v.getVehicleStatus() : null)
-                            .currentHighestBid(v != null ? v.getCurrentHighestBid() : null)
-                            .currentHighestBidder((v != null && v.getCurrentHighestBidder() != null) ? v.getCurrentHighestBidder().getDealershipName() : null)
+                            .currentHighestBid(resolveCurrentHighestBid(v, ins.getId()))
+                            .currentHighestBidder(resolveCurrentHighestBidder(v, ins.getId()))
                             .auctionEndTime((v != null && v.getAuctionEndTime() != null) ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
                             .totalBids(v != null ? v.getTotalBids() : null)
                             .sellerAgreed(v != null ? v.getSellerAgreed() : null)
@@ -736,8 +806,8 @@ public class InspectionServiceImpl implements InspectionService {
                             .rtoInformation(v != null ? v.getRtoInformation() : null)
                             .status(ins.getStatus())
                             .vehicleStatus(v != null ? v.getVehicleStatus() : null)
-                            .currentHighestBid(v != null ? v.getCurrentHighestBid() : null)
-                            .currentHighestBidder((v != null && v.getCurrentHighestBidder() != null) ? v.getCurrentHighestBidder().getDealershipName() : null)
+                            .currentHighestBid(resolveCurrentHighestBid(v, ins.getId()))
+                            .currentHighestBidder(resolveCurrentHighestBidder(v, ins.getId()))
                             .auctionEndTime((v != null && v.getAuctionEndTime() != null) ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
                             .totalBids(v != null ? v.getTotalBids() : null)
                             .sellerAgreed(v != null ? v.getSellerAgreed() : null)
@@ -1058,10 +1128,10 @@ public class InspectionServiceImpl implements InspectionService {
                         .mismatchInRc(v.getMismatchInRc())
                         .roadTaxPaid(v.getRoadTaxPaid())
                         .fitnessUpto(v.getFitnessUpto())
-                        .currentHighestBid(v.getCurrentHighestBid())
-                        .currentHighestBidder(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getDealershipName() : null)
-                        .currentHighestBidderId(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getId() : null)
-                        .currentHighestBidderEmail(v.getCurrentHighestBidder() != null ? v.getCurrentHighestBidder().getEmail() : null)
+                        .currentHighestBid(resolveCurrentHighestBid(v, ins.getId()))
+                        .currentHighestBidder(resolveCurrentHighestBidder(v, ins.getId()))
+                        .currentHighestBidderId(resolveCurrentHighestBidderId(v, ins.getId()))
+                        .currentHighestBidderEmail(resolveCurrentHighestBidderEmail(v, ins.getId()))
                         .auctionEndTime(v.getAuctionEndTime() != null ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
                         .totalBids(v.getTotalBids())
                         .sellerAgreed(v.getSellerAgreed())
