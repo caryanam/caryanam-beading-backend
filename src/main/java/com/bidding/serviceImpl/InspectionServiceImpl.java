@@ -1517,11 +1517,33 @@ public class InspectionServiceImpl implements InspectionService {
         Vehicle v = ins.getVehicle();
         if (v != null) {
             v.setVehicleStatus("LIVE");
-            v.setCurrentHighestBid(v.getSuggestedPrice() != null ? v.getSuggestedPrice() : 0.0);
-            v.setCurrentHighestBidder(null);
+
+            // Do NOT reset currentHighestBid if it already has an existing bid or valuation
+            Double effectiveBid = resolveCurrentHighestBid(v, id);
+            if (effectiveBid != null && effectiveBid > 0.0) {
+                v.setCurrentHighestBid(effectiveBid);
+            } else if (v.getSuggestedPrice() != null) {
+                v.setCurrentHighestBid(v.getSuggestedPrice());
+            } else {
+                v.setCurrentHighestBid(0.0);
+            }
+
+            if (v.getCurrentHighestBidder() == null) {
+                Optional<Bid> topBid = bidRepository.findFirstByInspectionIdOrderByAmountDesc(id);
+                if (topBid.isPresent() && topBid.get().getDealer() != null) {
+                    v.setCurrentHighestBidder(topBid.get().getDealer());
+                }
+            }
+
+            long totalCount = bidRepository.countByInspectionId(id);
+            if (totalCount > 0) {
+                v.setTotalBids((int) totalCount);
+            } else if (v.getTotalBids() == null) {
+                v.setTotalBids(0);
+            }
+
             int durationMinutes = (ins.getInspector() != null && ins.getInspector().getRole() == Role.FREELANCER) ? 15 : 10;
             v.setAuctionEndTime(LocalDateTime.now().plusMinutes(durationMinutes));
-            v.setTotalBids(0);
             v = vehicleRepository.save(v);
 
             // Broadcast websocket message so dealers receive the go live event instantly
@@ -1529,7 +1551,7 @@ public class InspectionServiceImpl implements InspectionService {
             wsMessage.put("type", "GO_LIVE");
             wsMessage.put("inspectionId", id);
             wsMessage.put("currentHighestBid", v.getCurrentHighestBid());
-            wsMessage.put("currentHighestBidder", null);
+            wsMessage.put("currentHighestBidder", resolveCurrentHighestBidder(v, id));
             wsMessage.put("totalBids", v.getTotalBids());
             wsMessage.put("auctionEndTime", v.getAuctionEndTime() != null 
                     ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() 
