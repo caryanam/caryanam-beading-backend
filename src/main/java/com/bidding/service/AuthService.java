@@ -20,4 +20,6 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
 
     void resetPassword(String email, String otp, String newPassword);
+
+    void deleteAccount(com.bidding.dto.request.DeleteAccountRequest request);
 }

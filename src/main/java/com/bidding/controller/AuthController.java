@@ -1,6 +1,7 @@
 package com.bidding.controller;
 
 import com.bidding.dto.request.LoginRequest;
+import com.bidding.dto.request.DeleteAccountRequest;
 import com.bidding.dto.request.InspectorRegisterRequest;
 import com.bidding.dto.request.DealerRegisterRequest;
 import com.bidding.dto.request.FreelancerRegisterRequest;
@@ -156,5 +157,18 @@ public class AuthController {
     @Operation(summary = "Forgot Password / Reset Password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> request) {
         return resetPassword(request);
+    }
+
+    @PostMapping("/auth/delete-account")
+    @Operation(summary = "Public Delete Account (Freelancers, Dealers, Inspectors)")
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(
+            @Valid @RequestBody DeleteAccountRequest request) {
+        authService.deleteAccount(request);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Account deleted successfully.")
+                        .build()
+        );
     }
 }

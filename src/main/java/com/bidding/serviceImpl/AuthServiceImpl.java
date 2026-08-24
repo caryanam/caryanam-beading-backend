@@ -27,6 +27,19 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+import com.bidding.dto.request.DeleteAccountRequest;
+import com.bidding.entity.Vehicle;
+import com.bidding.entity.Bid;
+import com.bidding.entity.Wishlist;
+import com.bidding.entity.Inspection;
+import com.bidding.entity.InspectionImage;
+import com.bidding.repo.VehicleRepository;
+import com.bidding.repo.BidRepository;
+import com.bidding.repo.WishlistRepository;
+import com.bidding.repo.InspectionRepository;
+import com.bidding.repo.InspectionImageRepository;
+import org.springframework.transaction.annotation.Transactional;
+
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -34,6 +47,11 @@ public class AuthServiceImpl implements AuthService {
     private final InspectorRepository inspectorRepository;
     private final DealerRepository dealerRepository;
     private final AdminRepository adminRepository;
+    private final VehicleRepository vehicleRepository;
+    private final BidRepository bidRepository;
+    private final WishlistRepository wishlistRepository;
+    private final InspectionRepository inspectionRepository;
+    private final InspectionImageRepository inspectionImageRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
@@ -308,5 +326,92 @@ public class AuthServiceImpl implements AuthService {
         }
 
         throw new IllegalArgumentException("No registered account found with email: " + cleanEmail);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAccount(DeleteAccountRequest request) {
+        String identifier = request.getIdentifier();
+        if (identifier == null || identifier.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email address or mobile number is required.");
+        }
+        if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("Password is required for account deletion.");
+        }
+
+        String cleanIdentifier = identifier.trim();
+
+        // 1. Check if user is a Dealer
+        Optional<Dealer> dealerOpt = dealerRepository.findByEmailOrMobileNumber(cleanIdentifier, cleanIdentifier);
+        if (dealerOpt.isPresent()) {
+            Dealer dealer = dealerOpt.get();
+            if (!passwordEncoder.matches(request.getPassword(), dealer.getPassword())) {
+                throw new BadCredentialsException("Invalid credentials. Incorrect password.");
+            }
+
+            // Unlink vehicles where this dealer is set as current highest bidder
+            java.util.List<Vehicle> vehiclesWithDealer = vehicleRepository.findAll().stream()
+                    .filter(v -> v.getCurrentHighestBidder() != null && v.getCurrentHighestBidder().getId().equals(dealer.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+            for (Vehicle v : vehiclesWithDealer) {
+                v.setCurrentHighestBidder(null);
+                vehicleRepository.save(v);
+            }
+
+            // Remove bids placed by this dealer
+            java.util.List<Bid> dealerBids = bidRepository.findAll().stream()
+                    .filter(b -> b.getDealer() != null && b.getDealer().getId().equals(dealer.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+            if (!dealerBids.isEmpty()) {
+                bidRepository.deleteAll(dealerBids);
+            }
+
+            // Remove wishlist items saved by this dealer
+            java.util.List<Wishlist> dealerWishlist = wishlistRepository.findByDealerId(dealer.getId());
+            if (dealerWishlist != null && !dealerWishlist.isEmpty()) {
+                wishlistRepository.deleteAll(dealerWishlist);
+            }
+
+            dealerRepository.delete(dealer);
+            return;
+        }
+
+        // 2. Check if user is an Inspector or Freelancer
+        Optional<Inspector> inspectorOpt = inspectorRepository.findByEmailOrMobileNumber(cleanIdentifier, cleanIdentifier);
+        if (inspectorOpt.isPresent()) {
+            Inspector inspector = inspectorOpt.get();
+            if (!passwordEncoder.matches(request.getPassword(), inspector.getPassword())) {
+                throw new BadCredentialsException("Invalid credentials. Incorrect password.");
+            }
+
+            // Unlink inspector from inspection records
+            java.util.List<Inspection> inspections = inspectionRepository.findAll().stream()
+                    .filter(i -> (i.getInspector() != null && i.getInspector().getId().equals(inspector.getId())) ||
+                                 (i.getSubmittedBy() != null && i.getSubmittedBy().getId().equals(inspector.getId())))
+                    .collect(java.util.stream.Collectors.toList());
+            for (Inspection ins : inspections) {
+                if (ins.getInspector() != null && ins.getInspector().getId().equals(inspector.getId())) {
+                    ins.setInspector(null);
+                }
+                if (ins.getSubmittedBy() != null && ins.getSubmittedBy().getId().equals(inspector.getId())) {
+                    ins.setSubmittedBy(null);
+                }
+                inspectionRepository.save(ins);
+            }
+
+            // Unlink inspector from inspection images
+            java.util.List<InspectionImage> images = inspectionImageRepository.findAll().stream()
+                    .filter(img -> img.getInspector() != null && img.getInspector().getId().equals(inspector.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+            for (InspectionImage img : images) {
+                img.setInspector(null);
+                inspectionImageRepository.save(img);
+            }
+
+            inspectorRepository.delete(inspector);
+            return;
+        }
+
+        throw new BadCredentialsException("Invalid credentials. No account found with the provided Email Address / Mobile Number.");
     }
 }
