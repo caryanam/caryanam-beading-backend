@@ -1774,8 +1774,8 @@ public class InspectionServiceImpl implements InspectionService {
                 );
             } else if ("LIVE".equalsIgnoreCase(vehicleStatus)) {
                 notificationService.createNotification(
-                        "ALL_DEALERS",
-                        null,
+                        "DEALER",
+                        "ALL",
                         id,
                         "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Live Auction Started: " + vehicleTitle,
                         "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
