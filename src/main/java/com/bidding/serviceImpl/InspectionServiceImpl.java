@@ -862,6 +862,18 @@ public class InspectionServiceImpl implements InspectionService {
                     "Your vehicle submission for " + vTitle + " has been approved by admin and is ready for live auction.",
                     "APPROVED"
             );
+            
+            // Notify all dealers that a new vehicle is coming soon
+            if (v != null) {
+                notificationService.createNotification(
+                        "DEALER",
+                        "ALL",
+                        id,
+                        "New Vehicle Coming Soon!",
+                        vTitle + " has just been approved and will be up for auction soon. Get ready to bid!",
+                        "COMING_SOON"
+                );
+            }
         }
     }
 
@@ -1725,6 +1737,16 @@ public class InspectionServiceImpl implements InspectionService {
                         "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Vehicle Marked SOLD OUT: " + vehicleTitle,
                         "Vehicle " + vehicleTitle + " has been marked SOLD OUT.",
                         "STATUS_UPDATE"
+                );
+                
+                // Notify all dealers that the auction has ended
+                notificationService.createNotification(
+                        "DEALER",
+                        "ALL",
+                        id,
+                        "Auction Ended: " + vehicleTitle,
+                        vehicleTitle + " has been marked as SOLD OUT. The auction is now closed.",
+                        "AUCTION_ENDED"
                 );
             } else if ("LIVE".equalsIgnoreCase(vehicleStatus)) {
                 notificationService.createNotification(
