@@ -1571,6 +1571,16 @@ public class InspectionServiceImpl implements InspectionService {
             wsMessage.put("bidHistory", new ArrayList<>());
 
             webSocketHandler.broadcast(id, wsMessage);
+            
+            String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            notificationService.createNotification(
+                    "DEALER",
+                    "ALL",
+                    id,
+                    "Live Auction Started: " + vehicleTitle,
+                    "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
+                    "AUCTION_LIVE"
+            );
         }
     }
 
