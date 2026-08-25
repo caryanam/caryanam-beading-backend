@@ -35,6 +35,7 @@ public class SecurityConfig {
 
                         // Public authentication & registration endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/public/enquiry").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/inspector/register",
                                 "/api/freelancer/register",
