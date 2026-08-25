@@ -4,6 +4,8 @@ import com.bidding.dto.responce.NotificationDTO;
 import com.bidding.entity.Notification;
 import com.bidding.repo.NotificationRepository;
 import com.bidding.service.NotificationService;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.Message;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,18 +23,40 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
-    public void createNotification(String recipientRole, String recipientEmail, Long inspectionId, String title, String message, String type) {
+    public void createNotification(String recipientRole, String recipientEmail, Long inspectionId, String title, String messageStr, String type) {
         Notification notification = Notification.builder()
                 .recipientRole(recipientRole)
                 .recipientEmail(recipientEmail)
                 .inspectionId(inspectionId)
                 .title(title)
-                .message(message)
+                .message(messageStr)
                 .type(type)
                 .isRead(false)
                 .createdAt(LocalDateTime.now())
                 .build();
         notificationRepository.save(notification);
+
+        // Firebase Push Notification Logic for DEALER only
+        if ("DEALER".equalsIgnoreCase(recipientRole)) {
+            try {
+                String topic = "DEALER_ALL";
+                if (recipientEmail != null && !recipientEmail.trim().isEmpty() && !"ALL".equalsIgnoreCase(recipientEmail)) {
+                    topic = "dealer_" + recipientEmail.replaceAll("[^a-zA-Z0-9]", "_");
+                }
+                
+                Message msg = Message.builder()
+                        .setTopic(topic)
+                        .setNotification(com.google.firebase.messaging.Notification.builder()
+                                .setTitle(title)
+                                .setBody(messageStr)
+                                .build())
+                        .build();
+                FirebaseMessaging.getInstance().send(msg);
+                System.out.println("FCM Sent successfully to topic: " + topic);
+            } catch (Exception e) {
+                System.err.println("FCM Push Error: " + e.getMessage());
+            }
+        }
     }
 
     @Override
