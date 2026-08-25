@@ -1,4 +1,4 @@
-﻿package com.bidding.dto.responce;
+package com.bidding.dto.responce;
 
 import lombok.Builder;
 import lombok.Data;

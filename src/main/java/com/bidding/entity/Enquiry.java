@@ -1,4 +1,4 @@
-﻿package com.bidding.entity;
+package com.bidding.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

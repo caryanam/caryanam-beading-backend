@@ -1,4 +1,4 @@
-﻿package com.bidding.repo;
+package com.bidding.repo;
 
 import com.bidding.entity.Enquiry;
 import org.springframework.data.jpa.repository.JpaRepository;
