@@ -388,7 +388,10 @@ public class PdfGeneratorService {
                 imgCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
                 if (imgUrl != null && !imgUrl.isEmpty()) {
-                    boolean isVideo = isVideoUrl(imgUrl);
+                    boolean isVideo = imgUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
+                            || imgUrl.toLowerCase().contains("video")
+                            || pt.name().contains("ENGINE_NOISE")
+                            || pt.getDisplayName().equalsIgnoreCase("Engine / Motor Noise");
 
                     if (isVideo) {
                         Font videoFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.0f, Font.BOLD, new Color(79, 70, 229));
@@ -665,14 +668,24 @@ public class PdfGeneratorService {
                 || "NONE".equals(cleanStatus) || "-".equals(cleanStatus)
                 || cleanStatus.startsWith("NA") || cleanStatus.startsWith("N/A");
 
-        if (!isNa && imageUrl != null && !imageUrl.trim().isEmpty() && !isVideoUrl(imageUrl)) {
-            Image pdfImg = createPdfImage(imageUrl, 60, 40);
-            if (pdfImg != null) {
-                imgCell.addElement(pdfImg);
+        if (!isNa && imageUrl != null && !imageUrl.trim().isEmpty()) {
+            boolean isVideo = imageUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
+                    || imageUrl.toLowerCase().contains("video")
+                    || "Engine / Motor Noise".equalsIgnoreCase(name);
+            if (isVideo) {
+                Font videoFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.0f, Font.BOLD, new Color(79, 70, 229));
+                Paragraph videoText = new Paragraph("[VIDEO ATTACHED]", videoFont);
+                videoText.setAlignment(Element.ALIGN_CENTER);
+                imgCell.addElement(videoText);
             } else {
-                Paragraph noPhoto = new Paragraph("-", valueFont);
-                noPhoto.setAlignment(Element.ALIGN_CENTER);
-                imgCell.addElement(noPhoto);
+                Image pdfImg = createPdfImage(imageUrl, 60, 40);
+                if (pdfImg != null) {
+                    imgCell.addElement(pdfImg);
+                } else {
+                    Paragraph noPhoto = new Paragraph("-", valueFont);
+                    noPhoto.setAlignment(Element.ALIGN_CENTER);
+                    imgCell.addElement(noPhoto);
+                }
             }
         } else {
             Paragraph noPhoto = new Paragraph("-", valueFont);
@@ -721,22 +734,21 @@ public class PdfGeneratorService {
         boolean isExplicitPhotoSlot = name.toUpperCase().endsWith("IMAGE") || name.toUpperCase().endsWith("PHOTO") || name.toUpperCase().endsWith("IMG");
 
         if ((!isNa || isExplicitPhotoSlot) && imageUrl != null && !imageUrl.trim().isEmpty()) {
-            boolean isNoise = "Engine / Motor Noise".equalsIgnoreCase(name) || name.toLowerCase().contains("noise");
-            boolean isVideo = isVideoUrl(imageUrl);
-            if (isNoise && isVideo) {
+            boolean isVideo = imageUrl.toLowerCase().matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)")
+                    || imageUrl.toLowerCase().contains("video")
+                    || "Engine / Motor Noise".equalsIgnoreCase(name);
+            if (isVideo) {
                 Font videoFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.0f, Font.BOLD, new Color(79, 70, 229));
                 Paragraph videoText = new Paragraph("[VIDEO ATTACHED]", videoFont);
                 videoText.setAlignment(Element.ALIGN_CENTER);
                 photoCell.addElement(videoText);
-            } else if (!isVideo) {
+            } else {
                 Image pdfImg = createPdfImage(imageUrl, 55, 36);
                 if (pdfImg != null) {
                     photoCell.addElement(pdfImg);
                 } else {
                     photoCell.addElement(new Phrase("-", valueFont));
                 }
-            } else {
-                photoCell.addElement(new Phrase("-", valueFont));
             }
         } else {
             photoCell.addElement(new Phrase("-", valueFont));
@@ -789,17 +801,10 @@ public class PdfGeneratorService {
         return t + " / " + y;
     }
 
-        private boolean isVideoUrl(String url) {
-        if (url == null || url.trim().isEmpty()) return false;
-        String lower = url.toLowerCase();
-        return lower.matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)");
-    }
-
     private String findPhotoUrlBySlot(InspectionDetailsResponse details, String slotType) {
         if (details == null || details.getInspectionPhotos() == null || slotType == null) return null;
         for (InspectionDetailsResponse.PhotoResponseDTO photo : details.getInspectionPhotos()) {
-            if (photo.getImageUrl() != null && !photo.getImageUrl().trim().isEmpty()) {
-                if (isVideoUrl(photo.getImageUrl())) continue; // Mandatory photo slots MUST NEVER match a video!
+            if (photo.getImageUrl() != null && !photo.getImageUrl().isEmpty()) {
                 if (slotType.equalsIgnoreCase(photo.getPhotoType()) ||
                     isMatch(photo.getImageCategory(), slotType) ||
                     isMatch(photo.getDisplayName(), slotType)) {
@@ -811,39 +816,9 @@ public class PdfGeneratorService {
     }
 
     private String findPhotoUrlByName(InspectionDetailsResponse details, String name) {
-        if (details == null || name == null) return null;
-        boolean isNoise = "Engine / Motor Noise".equalsIgnoreCase(name) || name.toLowerCase().contains("noise");
-
-        // ONLY "Engine / Motor Noise" is allowed to resolve to a video
-        if (isNoise) {
-            if (details.getInspectionVideos() != null) {
-                for (InspectionDetailsResponse.VideoResponseDTO v : details.getInspectionVideos()) {
-                    if (v != null && v.getVideoUrl() != null && !v.getVideoUrl().trim().isEmpty()) {
-                        return v.getVideoUrl();
-                    }
-                }
-            }
-            if (details.getVideoUrl() != null && !details.getVideoUrl().trim().isEmpty()) {
-                return details.getVideoUrl();
-            }
-            if (details.getInspectionPhotos() != null) {
-                for (InspectionDetailsResponse.PhotoResponseDTO photo : details.getInspectionPhotos()) {
-                    if (photo.getImageUrl() != null && !photo.getImageUrl().trim().isEmpty()) {
-                        String cat = photo.getImageCategory() != null ? photo.getImageCategory() : photo.getDisplayName();
-                        if (cat != null && cat.toLowerCase().contains("noise")) {
-                            return photo.getImageUrl();
-                        }
-                    }
-                }
-            }
-            return null;
-        }
-
-        // All other checklist items MUST strictly be images (never videos!)
-        if (details.getInspectionPhotos() == null) return null;
+        if (details == null || details.getInspectionPhotos() == null || name == null) return null;
         for (InspectionDetailsResponse.PhotoResponseDTO photo : details.getInspectionPhotos()) {
-            if (photo.getImageUrl() != null && !photo.getImageUrl().trim().isEmpty()) {
-                if (isVideoUrl(photo.getImageUrl())) continue;
+            if (photo.getImageUrl() != null && !photo.getImageUrl().isEmpty()) {
                 if (isMatch(photo.getImageCategory(), name) ||
                     isMatch(photo.getDisplayName(), name)) {
                     return photo.getImageUrl();
@@ -909,30 +884,8 @@ public class PdfGeneratorService {
         if (cleanTgt.contains("POWERWINDOW")) return cleanCat.contains("POWERWINDOW") || cleanCat.contains("WINDOW");
         if (cleanTgt.contains("DEFOGGER")) return cleanCat.contains("DEFOGGER");
         if (cleanTgt.contains("REARWASHER") || cleanTgt.contains("REARWIPER")) return cleanCat.contains("REARWASHER") || cleanCat.contains("REARWIPER") || cleanCat.contains("WASHER");
-        // Engine items disambiguation
-        if (cleanTgt.equals("ENGINEROOMPHOTO") || cleanTgt.equals("ENGINEIMAGE") || cleanTgt.equals("ENGINEROOM") || cleanTgt.equals("ENGINEBAY")) {
-            return cleanCat.equals("ENGINEROOMPHOTO") || cleanCat.equals("ENGINEIMAGE") || cleanCat.equals("ENGINEROOM") || cleanCat.equals("ENGINEBAY") || cleanCat.equals("ENGINEIMG");
-        }
-        if (cleanTgt.equals("ENGINEOIL")) {
-            return cleanCat.equals("ENGINEOIL");
-        }
-        if (cleanTgt.equals("ENGINEMOTORSTATUS") || cleanTgt.equals("ENGINESTATUS")) {
-            return cleanCat.equals("ENGINEMOTORSTATUS") || cleanCat.equals("ENGINESTATUS");
-        }
-        if (cleanTgt.equals("ENGINEMOTORNOISE") || cleanTgt.equals("ENGINENOISE") || cleanTgt.equals("NOISE")) {
-            return cleanCat.equals("ENGINEMOTORNOISE") || cleanCat.equals("ENGINENOISE") || cleanCat.contains("NOISE");
-        }
-
-        // Battery items disambiguation
-        if (cleanTgt.equals("BATTERYBAYPHOTO") || cleanTgt.equals("BATTERYIMAGE") || cleanTgt.equals("BATTERYBAY") || cleanTgt.equals("BATTERYIMG")) {
-            return cleanCat.equals("BATTERYBAYPHOTO") || cleanCat.equals("BATTERYIMAGE") || cleanCat.equals("BATTERYBAY") || cleanCat.equals("BATTERYIMG");
-        }
-        if (cleanTgt.equals("BATTERYCOMPANY") || cleanTgt.equals("BATTERYBRAND")) {
-            return cleanCat.equals("BATTERYCOMPANY") || cleanCat.equals("BATTERYBRAND");
-        }
-        if (cleanTgt.equals("FULLBATTERYSERIALNUMBER") || cleanTgt.equals("BATTERYSERIAL") || cleanTgt.equals("BATTERYNUMBER")) {
-            return cleanCat.equals("FULLBATTERYSERIALNUMBER") || cleanCat.equals("BATTERYSERIAL") || cleanCat.equals("BATTERYNUMBER");
-        }
+        if (cleanTgt.contains("ENGINE")) return cleanCat.contains("ENGINE");
+        if (cleanTgt.contains("BATTERY")) return cleanCat.contains("BATTERY");
 
         if (isGenericCat) return false;
 
@@ -943,7 +896,8 @@ public class PdfGeneratorService {
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
             return null;
         }
-        if (isVideoUrl(imageUrl)) {
+        String lowerUrl = imageUrl.toLowerCase();
+        if (lowerUrl.matches(".*\\.(mp4|webm|mov|avi|mkv|3gp|flv|wmv)($|\\?.*)") || lowerUrl.contains("video")) {
             return null;
         }
         try {
