@@ -166,8 +166,24 @@ public class AdminInspectionController {
 
     @PutMapping("/api/admin/inspection/{id}/go-live")
     @Operation(summary = "Start live auction for the vehicle")
-    public ResponseEntity<ApiResponse<Void>> goLive(@PathVariable Long id) {
-        inspectionService.goLive(id);
+    public ResponseEntity<ApiResponse<Void>> goLive(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer duration,
+            @RequestParam(required = false) Integer durationMinutes,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Integer resolvedDuration = duration != null ? duration : durationMinutes;
+        if (resolvedDuration == null && body != null) {
+            if (body.get("duration") instanceof Number n) {
+                resolvedDuration = n.intValue();
+            } else if (body.get("durationMinutes") instanceof Number n) {
+                resolvedDuration = n.intValue();
+            }
+        }
+        if (resolvedDuration != null && resolvedDuration > 0) {
+            inspectionService.goLive(id, resolvedDuration);
+        } else {
+            inspectionService.goLive(id);
+        }
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .success(true)
                 .message("Auction is now live.")

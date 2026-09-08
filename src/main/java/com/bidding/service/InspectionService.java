@@ -58,6 +58,8 @@ public interface InspectionService {
 
     void goLive(Long id);
 
+    void goLive(Long id, Integer customDurationMinutes);
+
     void stopAuction(Long id);
 
     void importDealers(org.springframework.web.multipart.MultipartFile file);

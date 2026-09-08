@@ -498,9 +498,13 @@ public class InspectionServiceImpl implements InspectionService {
         if (interior.getSunroof() == null) throw new IllegalArgumentException("Validation Failed: Sunroof check is required.");
         if (interior.getSensors() == null) throw new IllegalArgumentException("Validation Failed: Sensors check is required.");
 
-        // Validate mandatory images uploaded
+        // Validate mandatory images uploaded (Mechanical and Interior & Electrical images are optional)
         List<InspectionImage> images = inspectionImageRepository.findByInspectionId(id);
         for (PhotoType pt : PhotoType.values()) {
+            if (pt == PhotoType.ENGINE_IMAGE || pt == PhotoType.BATTERY_IMAGE
+                    || pt == PhotoType.ODOMETER_IMAGE || pt == PhotoType.DASHBOARD_IMAGE || pt == PhotoType.AC_CONTROL_IMAGE) {
+                continue;
+            }
             boolean hasMatch = images.stream().anyMatch(img -> isCategoryMatch(img.getImageCategory(), pt));
             if (!hasMatch) {
                 throw new IllegalArgumentException("Validation Failed: Mandatory category image is missing: " + pt.getDisplayName());
@@ -1523,6 +1527,12 @@ public class InspectionServiceImpl implements InspectionService {
     @Override
     @Transactional
     public void goLive(Long id) {
+        goLive(id, null);
+    }
+
+    @Override
+    @Transactional
+    public void goLive(Long id, Integer customDurationMinutes) {
         Inspection ins = inspectionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
 
@@ -1554,7 +1564,14 @@ public class InspectionServiceImpl implements InspectionService {
                 v.setTotalBids(0);
             }
 
-            int durationMinutes = (ins.getInspector() != null && ins.getInspector().getRole() == Role.FREELANCER) ? 15 : 10;
+            int durationMinutes;
+            if (customDurationMinutes != null && customDurationMinutes > 0) {
+                durationMinutes = customDurationMinutes;
+            } else {
+                boolean isFreelancer = (ins.getInspector() != null && ins.getInspector().getRole() == Role.FREELANCER)
+                        || (ins.getSubmittedBy() != null && ins.getSubmittedBy().getRole() == Role.FREELANCER);
+                durationMinutes = isFreelancer ? 15 : 30;
+            }
             v.setAuctionEndTime(LocalDateTime.now().plusMinutes(durationMinutes));
             v = vehicleRepository.save(v);
 

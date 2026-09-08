@@ -170,8 +170,8 @@ public class PdfGeneratorService {
 
             addDiagnosticRow(extAnglesTable, "FRONT SIDE IMAGE", "CAPTURED", findPhotoUrlBySlot(details, "FRONT_VIEW"));
             addDiagnosticRow(extAnglesTable, "RIGHT SIDE IMAGE", "CAPTURED", findPhotoUrlBySlot(details, "RIGHT_FRONT_VIEW"));
-            addDiagnosticRow(extAnglesTable, "REAR SIDE IMAGE", "CAPTURED", findPhotoUrlBySlot(details, "REAR_VIEW"));
             addDiagnosticRow(extAnglesTable, "LEFT SIDE IMAGE", "CAPTURED", findPhotoUrlBySlot(details, "LEFT_FRONT_VIEW"));
+            addDiagnosticRow(extAnglesTable, "REAR SIDE IMAGE", "CAPTURED", findPhotoUrlBySlot(details, "REAR_VIEW"));
             addDiagnosticRow(extAnglesTable, "ROOF TOP IMAGE", "CAPTURED", findPhotoUrlBySlot(details, "ROOF_VIEW"));
             document.add(extAnglesTable);
 
@@ -222,8 +222,10 @@ public class PdfGeneratorService {
             } catch (Exception ignored) {}
             engineBayTable.setSpacingAfter(12);
 
-            addDiagnosticRow(engineBayTable, "ENGINE ROOM PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "ENGINE_IMAGE"));
-            addDiagnosticRow(engineBayTable, "BATTERY BAY PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "BATTERY_IMAGE"));
+            String engineImgUrl = findPhotoUrlBySlot(details, "ENGINE_IMAGE");
+            String batteryImgUrl = findPhotoUrlBySlot(details, "BATTERY_IMAGE");
+            addDiagnosticRow(engineBayTable, "ENGINE ROOM PHOTO", (engineImgUrl != null && !engineImgUrl.trim().isEmpty()) ? "CAPTURED" : "-", engineImgUrl);
+            addDiagnosticRow(engineBayTable, "BATTERY BAY PHOTO", (batteryImgUrl != null && !batteryImgUrl.trim().isEmpty()) ? "CAPTURED" : "-", batteryImgUrl);
             document.add(engineBayTable);
 
             // 6. Tyres Specifications & Emergency Toolkit
@@ -322,8 +324,8 @@ public class PdfGeneratorService {
             }
             document.add(intTable);
 
-            // Mandatory Cabin Photos
-            addSectionHeading(document, "INTERIOR & CABIN MANDATORY PHOTOS");
+            // Interior & Cabin Photos
+            addSectionHeading(document, "INTERIOR & CABIN PHOTOS");
             PdfPTable cabinPhotosTable = new PdfPTable(3);
             cabinPhotosTable.setWidthPercentage(100);
             try {
@@ -331,8 +333,10 @@ public class PdfGeneratorService {
             } catch (Exception ignored) {}
             cabinPhotosTable.setSpacingAfter(12);
 
-            addDiagnosticRow(cabinPhotosTable, "ODOMETER READING PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "ODOMETER_IMAGE"));
-            addDiagnosticRow(cabinPhotosTable, "AC CONTROL PANEL PHOTO", "CAPTURED", findPhotoUrlBySlot(details, "AC_CONTROL_IMAGE"));
+            String odoImgUrl = findPhotoUrlBySlot(details, "ODOMETER_IMAGE");
+            String acImgUrl = findPhotoUrlBySlot(details, "AC_CONTROL_IMAGE");
+            addDiagnosticRow(cabinPhotosTable, "ODOMETER READING PHOTO", (odoImgUrl != null && !odoImgUrl.trim().isEmpty()) ? "CAPTURED" : "-", odoImgUrl);
+            addDiagnosticRow(cabinPhotosTable, "AC CONTROL PANEL PHOTO", (acImgUrl != null && !acImgUrl.trim().isEmpty()) ? "CAPTURED" : "-", acImgUrl);
             document.add(cabinPhotosTable);
 
             // 8. General Remarks & Report Status
