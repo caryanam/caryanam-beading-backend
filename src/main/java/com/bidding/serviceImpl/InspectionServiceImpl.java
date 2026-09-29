@@ -869,12 +869,13 @@ public class InspectionServiceImpl implements InspectionService {
             
             // Notify all dealers that a new vehicle is coming soon
             if (v != null) {
+                String dealerVehicleTitle = (v.getBrand() + " " + v.getModel() + (v.getVariant() != null && !v.getVariant().isEmpty() ? " " + v.getVariant() : "")).trim();
                 notificationService.createNotification(
                         "DEALER",
                         "ALL",
                         id,
                         "New Vehicle Coming Soon!",
-                        vTitle + " has just been approved and will be up for auction soon. Get ready to bid!",
+                        dealerVehicleTitle + " has just been approved and will be up for auction soon. Get ready to bid!",
                         "COMING_SOON"
                 );
             }
@@ -1411,6 +1412,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .totalBids(bidRepository.countByDealerId(d.getId()))
                             .wonBidsCount((long) wonBids.size())
                             .wonBids(wonBids)
+                            .isFreelancer(d.getIsFreelancer() != null ? d.getIsFreelancer() : false)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -1434,6 +1436,7 @@ public class InspectionServiceImpl implements InspectionService {
         if (dto.getCity() != null) dealer.setCity(dto.getCity().trim());
         if (dto.getArea() != null) dealer.setArea(dto.getArea().trim());
         if (dto.getAddress() != null) dealer.setAddress(dto.getAddress().trim());
+        if (dto.getIsFreelancer() != null) dealer.setIsFreelancer(dto.getIsFreelancer());
         dealer.setUpdatedAt(LocalDateTime.now());
 
         Dealer saved = dealerRepository.save(dealer);
@@ -1452,6 +1455,61 @@ public class InspectionServiceImpl implements InspectionService {
                 .totalBids(bidRepository.countByDealerId(saved.getId()))
                 .wonBidsCount((long) wonBids.size())
                 .wonBids(wonBids)
+                .isFreelancer(saved.getIsFreelancer() != null ? saved.getIsFreelancer() : false)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public DealerResponseDTO makeDealerFreelancer(Long id) {
+        Dealer dealer = dealerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with id: " + id));
+
+        dealer.setIsFreelancer(true);
+        dealer.setUpdatedAt(LocalDateTime.now());
+        dealerRepository.save(dealer);
+
+        // Sync/Create Inspector record with Role.FREELANCER
+        String email = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
+                ? dealer.getEmail().trim()
+                : (dealer.getMobileNumber() + "@caryanam.com");
+        String mobile = dealer.getMobileNumber();
+
+        Optional<Inspector> existingFreelancer = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
+        if (existingFreelancer.isPresent()) {
+            Inspector ins = existingFreelancer.get();
+            ins.setRole(Role.FREELANCER);
+            ins.setPassword(dealer.getPassword());
+            ins.setFullName(dealer.getOwnerName());
+            ins.setUpdatedAt(LocalDateTime.now());
+            inspectorRepository.save(ins);
+        } else {
+            Inspector freelancer = Inspector.builder()
+                    .fullName(dealer.getOwnerName())
+                    .email(email)
+                    .mobileNumber(mobile)
+                    .password(dealer.getPassword())
+                    .role(Role.FREELANCER)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            inspectorRepository.save(freelancer);
+        }
+
+        List<com.bidding.dto.responce.DealerWonBidDTO> wonBids = getWonBidsForDealer(dealer.getId());
+        return DealerResponseDTO.builder()
+                .id(dealer.getId())
+                .dealershipName(dealer.getDealershipName())
+                .ownerName(dealer.getOwnerName())
+                .email(dealer.getEmail())
+                .mobileNumber(dealer.getMobileNumber())
+                .role(dealer.getRole())
+                .address(dealer.getAddress())
+                .area(dealer.getArea())
+                .city(dealer.getCity())
+                .totalBids(bidRepository.countByDealerId(dealer.getId()))
+                .wonBidsCount((long) wonBids.size())
+                .wonBids(wonBids)
+                .isFreelancer(true)
                 .build();
     }
 
@@ -1590,12 +1648,13 @@ public class InspectionServiceImpl implements InspectionService {
             webSocketHandler.broadcast(id, wsMessage);
             
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            String dealerVehicleTitle = (v.getBrand() + " " + v.getModel() + (v.getVariant() != null && !v.getVariant().isEmpty() ? " " + v.getVariant() : "")).trim();
             notificationService.createNotification(
                     "DEALER",
                     "ALL",
                     id,
-                    "Live Auction Started: " + vehicleTitle,
-                    "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
+                    "🔥 Live Auction Started: " + dealerVehicleTitle,
+                    "Bidding is now LIVE for " + dealerVehicleTitle + "! Place your bids now.",
                     "AUCTION_LIVE"
             );
         }
@@ -1624,6 +1683,7 @@ public class InspectionServiceImpl implements InspectionService {
             webSocketHandler.broadcast(id, wsMessage);
             
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            String dealerVehicleTitle = (v.getBrand() + " " + v.getModel() + (v.getVariant() != null && !v.getVariant().isEmpty() ? " " + v.getVariant() : "")).trim();
             
             // Notify WINNER if there is one
             if (v.getCurrentHighestBidder() != null) {
@@ -1631,8 +1691,8 @@ public class InspectionServiceImpl implements InspectionService {
                         "DEALER",
                         v.getCurrentHighestBidder().getEmail(),
                         id,
-                        "Auction Won: " + vehicleTitle,
-                        "Congratulations! You won the auction for " + vehicleTitle + " with a bid of ₹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
+                        "🏆 Auction Won: " + dealerVehicleTitle,
+                        "Congratulations! You won the auction for " + dealerVehicleTitle + " with a bid of ₹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
                         "AUCTION_WON"
                 );
             }
@@ -1642,8 +1702,8 @@ public class InspectionServiceImpl implements InspectionService {
                     "DEALER",
                     "ALL",
                     id,
-                    "Auction Ended: " + vehicleTitle,
-                    "The live auction for " + vehicleTitle + " has ended.",
+                    "Auction Ended: " + dealerVehicleTitle,
+                    "The live auction for " + dealerVehicleTitle + " has ended.",
                     "AUCTION_ENDED"
             );
         }
@@ -1662,12 +1722,12 @@ public class InspectionServiceImpl implements InspectionService {
             vehicleRepository.save(v);
 
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
-            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", counterPrice) : "Rejected bid");
+            String desc = Boolean.TRUE.equals(agreed) ? "Agreed to highest bid" : (counterPrice != null ? "Counter offer ₹" + String.format("%,.0f", counterPrice) : "Rejected bid");
             notificationService.createNotification(
                     "ADMIN",
                     null,
                     id,
-                    "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Seller Decision: " + vehicleTitle,
+                    "💬 Seller Decision: " + vehicleTitle,
                     "Seller responded: " + desc + (message != null && !message.isEmpty() ? " ('" + message + "')" : ""),
                     "SELLER_RESPONSE"
             );
@@ -1693,13 +1753,14 @@ public class InspectionServiceImpl implements InspectionService {
             vehicleRepository.save(v);
 
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            String dealerVehicleTitle = (v.getBrand() + " " + v.getModel() + (v.getVariant() != null && !v.getVariant().isEmpty() ? " " + v.getVariant() : "")).trim();
             if (v.getCurrentHighestBidder() != null) {
                 notificationService.createNotification(
                         "DEALER",
                         v.getCurrentHighestBidder().getEmail(),
                         id,
-                        "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Admin Negotiation Message: " + vehicleTitle,
-                        "Admin sent message regarding " + vehicleTitle + ": '" + message + "'",
+                        "💬 Admin Negotiation Message: " + dealerVehicleTitle,
+                        "Admin sent message regarding " + dealerVehicleTitle + ": '" + message + "'",
                         "ADMIN_MESSAGE"
                 );
             }
@@ -1728,7 +1789,7 @@ public class InspectionServiceImpl implements InspectionService {
                     "ADMIN",
                     null,
                     id,
-                    "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Dealer Reply Received: " + vehicleTitle,
+                    "✉️ Dealer Reply Received: " + vehicleTitle,
                     "Dealer " + dealerName + " replied for " + vehicleTitle + ": '" + reply + "'",
                     "DEALER_REPLY"
             );
@@ -1768,6 +1829,7 @@ public class InspectionServiceImpl implements InspectionService {
             vehicleRepository.save(v);
 
             String vehicleTitle = String.format("%s %s (%s)", v.getBrand(), v.getModel(), v.getVehicleNumber());
+            String dealerVehicleTitle = (v.getBrand() + " " + v.getModel() + (v.getVariant() != null && !v.getVariant().isEmpty() ? " " + v.getVariant() : "")).trim();
 
             // Create notification for winning dealer and admin
             if ("SOLD OUT".equalsIgnoreCase(vehicleStatus) || "SOLD".equalsIgnoreCase(vehicleStatus)) {
@@ -1776,8 +1838,8 @@ public class InspectionServiceImpl implements InspectionService {
                             "DEALER",
                             v.getCurrentHighestBidder().getEmail(),
                             id,
-                            "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â  Auction Won: " + vehicleTitle,
-                            "Congratulations! Vehicle " + vehicleTitle + " has been marked SOLD OUT to you for ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
+                            "🎉 Auction Won: " + dealerVehicleTitle,
+                            "Congratulations! Vehicle " + dealerVehicleTitle + " has been marked SOLD OUT to you for ₹" + String.format("%,.0f", v.getCurrentHighestBid() != null ? v.getCurrentHighestBid() : 0.0) + ".",
                             "AUCTION_WON"
                     );
                 }
@@ -1785,7 +1847,7 @@ public class InspectionServiceImpl implements InspectionService {
                         "ADMIN",
                         null,
                         id,
-                        "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Vehicle Marked SOLD OUT: " + vehicleTitle,
+                        "🎉 Vehicle Marked SOLD OUT: " + vehicleTitle,
                         "Vehicle " + vehicleTitle + " has been marked SOLD OUT.",
                         "STATUS_UPDATE"
                 );
@@ -1795,8 +1857,8 @@ public class InspectionServiceImpl implements InspectionService {
                         "DEALER",
                         "ALL",
                         id,
-                        "Auction Ended: " + vehicleTitle,
-                        vehicleTitle + " has been marked as SOLD OUT. The auction is now closed.",
+                        "Auction Ended: " + dealerVehicleTitle,
+                        dealerVehicleTitle + " has been marked as SOLD OUT. The auction is now closed.",
                         "AUCTION_ENDED"
                 );
             } else if ("LIVE".equalsIgnoreCase(vehicleStatus)) {
@@ -1804,8 +1866,8 @@ public class InspectionServiceImpl implements InspectionService {
                         "DEALER",
                         "ALL",
                         id,
-                        "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Live Auction Started: " + vehicleTitle,
-                        "Bidding is now LIVE for " + vehicleTitle + "! Place your bids now.",
+                        "🔥 Live Auction Started: " + dealerVehicleTitle,
+                        "Bidding is now LIVE for " + dealerVehicleTitle + "! Place your bids now.",
                         "AUCTION_LIVE"
                 );
             }

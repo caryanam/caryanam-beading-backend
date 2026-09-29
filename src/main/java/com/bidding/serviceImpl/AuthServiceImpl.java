@@ -146,8 +146,19 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Password and Confirm Password must match");
         }
 
-        if (!otpService.isEmailVerified(request.getEmail())) {
-            throw new IllegalArgumentException("Email address is not verified. Please request and verify OTP first.");
+        String email = (request.getEmail() != null && !request.getEmail().trim().isEmpty())
+                ? request.getEmail().trim()
+                : null;
+
+        if (email != null) {
+            if (!otpService.isEmailVerified(email)) {
+                throw new IllegalArgumentException("Email address is not verified. Please request and verify OTP first.");
+            }
+            if (adminRepository.existsByEmail(email) || 
+                inspectorRepository.existsByEmail(email) || 
+                dealerRepository.existsByEmail(email)) {
+                throw new ResourceAlreadyExistsException("Email already exists");
+            }
         }
 
         if (request.getArea() == null || request.getArea().trim().length() < 3) {
@@ -162,12 +173,6 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Address must be at least 5 characters long");
         }
 
-        if (adminRepository.existsByEmail(request.getEmail()) || 
-            inspectorRepository.existsByEmail(request.getEmail()) || 
-            dealerRepository.existsByEmail(request.getEmail())) {
-            throw new ResourceAlreadyExistsException("Email already exists");
-        }
-
         if (adminRepository.existsByMobileNumber(request.getMobile()) || 
             inspectorRepository.existsByMobileNumber(request.getMobile()) || 
             dealerRepository.existsByMobileNumber(request.getMobile())) {
@@ -177,7 +182,7 @@ public class AuthServiceImpl implements AuthService {
         Dealer dealer = Dealer.builder()
                 .dealershipName(request.getDealershipName())
                 .ownerName(request.getOwnerName())
-                .email(request.getEmail())
+                .email(email)
                 .mobileNumber(request.getMobile())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.DEALER)
@@ -225,6 +230,47 @@ public class AuthServiceImpl implements AuthService {
                     .email(admin.getEmail())
                     .mobileNumber(admin.getMobileNumber())
                     .role(admin.getRole())
+                    .roles(java.util.List.of(admin.getRole()))
+                    .hasDualRole(false)
+                    .token(token)
+                    .build();
+        }
+
+        // Check if Dealer (could have dual role: DEALER + FREELANCER)
+        Optional<Dealer> dealerOptional = dealerRepository.findByEmailOrMobileNumber(identifier, identifier);
+        if (dealerOptional.isPresent()) {
+            Dealer dealer = dealerOptional.get();
+
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            identifier,
+                            request.getPassword()
+                    )
+            );
+
+            String tokenSubject = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
+                    ? dealer.getEmail().trim()
+                    : dealer.getMobileNumber();
+
+            String token = jwtService.generateToken(tokenSubject);
+
+            boolean isDual = Boolean.TRUE.equals(dealer.getIsFreelancer()) || 
+                inspectorRepository.findByEmailOrMobileNumber(identifier, identifier)
+                    .map(i -> i.getRole() == Role.FREELANCER).orElse(false);
+
+            java.util.List<Role> roleList = isDual
+                    ? java.util.List.of(Role.DEALER, Role.FREELANCER)
+                    : java.util.List.of(Role.DEALER);
+
+            return AuthResponse.builder()
+                    .id(dealer.getId())
+                    .fullName(dealer.getOwnerName())
+                    .dealershipName(dealer.getDealershipName())
+                    .email(dealer.getEmail())
+                    .mobileNumber(dealer.getMobileNumber())
+                    .role(dealer.getRole())
+                    .roles(roleList)
+                    .hasDualRole(isDual)
                     .token(token)
                     .build();
         }
@@ -243,37 +289,21 @@ public class AuthServiceImpl implements AuthService {
 
             String token = jwtService.generateToken(inspector.getEmail() != null ? inspector.getEmail() : identifier);
 
+            boolean isDual = (inspector.getRole() == Role.FREELANCER) &&
+                    dealerRepository.findByEmailOrMobileNumber(identifier, identifier).isPresent();
+
+            java.util.List<Role> roleList = isDual
+                    ? java.util.List.of(Role.DEALER, Role.FREELANCER)
+                    : java.util.List.of(inspector.getRole());
+
             return AuthResponse.builder()
                     .id(inspector.getId())
                     .fullName(inspector.getFullName())
                     .email(inspector.getEmail())
                     .mobileNumber(inspector.getMobileNumber())
                     .role(inspector.getRole())
-                    .token(token)
-                    .build();
-        }
-
-        // Check if Dealer
-        Optional<Dealer> dealerOptional = dealerRepository.findByEmailOrMobileNumber(identifier, identifier);
-        if (dealerOptional.isPresent()) {
-            Dealer dealer = dealerOptional.get();
-
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            identifier,
-                            request.getPassword()
-                    )
-            );
-
-            String token = jwtService.generateToken(dealer.getEmail() != null ? dealer.getEmail() : identifier);
-
-            return AuthResponse.builder()
-                    .id(dealer.getId())
-                    .fullName(dealer.getOwnerName())
-                    .dealershipName(dealer.getDealershipName())
-                    .email(dealer.getEmail())
-                    .mobileNumber(dealer.getMobileNumber())
-                    .role(dealer.getRole())
+                    .roles(roleList)
+                    .hasDualRole(isDual)
                     .token(token)
                     .build();
         }
@@ -301,19 +331,20 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email is not verified or OTP is invalid/expired. Please verify OTP first.");
         }
 
-        Optional<Dealer> dealerOpt = dealerRepository.findByEmail(cleanEmail);
-        if (dealerOpt.isPresent()) {
-            Dealer dealer = dealerOpt.get();
-            dealer.setPassword(passwordEncoder.encode(newPassword.trim()));
-            dealerRepository.save(dealer);
-            return;
-        }
+        Optional<Dealer> dealerOpt = dealerRepository.findByEmailOrMobileNumber(cleanEmail, cleanEmail);
+        Optional<Inspector> inspectorOpt = inspectorRepository.findByEmailOrMobileNumber(cleanEmail, cleanEmail);
 
-        Optional<Inspector> inspectorOpt = inspectorRepository.findByEmail(cleanEmail);
-        if (inspectorOpt.isPresent()) {
-            Inspector inspector = inspectorOpt.get();
-            inspector.setPassword(passwordEncoder.encode(newPassword.trim()));
-            inspectorRepository.save(inspector);
+        if (dealerOpt.isPresent() || inspectorOpt.isPresent()) {
+            if (dealerOpt.isPresent()) {
+                Dealer dealer = dealerOpt.get();
+                dealer.setPassword(passwordEncoder.encode(newPassword.trim()));
+                dealerRepository.save(dealer);
+            }
+            if (inspectorOpt.isPresent()) {
+                Inspector inspector = inspectorOpt.get();
+                inspector.setPassword(passwordEncoder.encode(newPassword.trim()));
+                inspectorRepository.save(inspector);
+            }
             return;
         }
 

@@ -34,6 +34,10 @@ public class AuthResponse {
 
     private Role role;
 
+    private java.util.List<Role> roles;
+
+    private Boolean hasDualRole;
+
     private String token;
 
 }

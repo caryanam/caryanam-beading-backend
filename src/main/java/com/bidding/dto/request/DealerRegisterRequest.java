@@ -22,7 +22,6 @@ public class DealerRegisterRequest {
     @Pattern(regexp = "^[A-Za-z ]+$", message = "Owner name must contain only letters and spaces")
     private String ownerName;
 
-    @NotBlank(message = "Email is required")
     @Email(message = "Invalid email address")
     private String email;
 

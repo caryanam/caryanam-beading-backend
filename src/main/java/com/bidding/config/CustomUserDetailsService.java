@@ -56,6 +56,16 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         if (inspectorOptional.isPresent()) {
             Inspector inspector = inspectorOptional.get();
+            java.util.List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + inspector.getRole().name()));
+            
+            // If this is a Freelancer who is also a Dealer, add ROLE_DEALER
+            if (inspector.getRole() == com.bidding.enums.Role.FREELANCER) {
+                if (dealerRepository.findByEmailOrMobileNumber(input, input).isPresent()) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_DEALER"));
+                }
+            }
+
             return new org.springframework.security.core.userdetails.User(
                     inspector.getEmail() != null ? inspector.getEmail() : input,
                     inspector.getPassword(),
@@ -63,9 +73,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                     true,
                     true,
                     true,
-                    Collections.singletonList(
-                            new SimpleGrantedAuthority("ROLE_" + inspector.getRole().name())
-                    )
+                    authorities
             );
         }
 
@@ -74,16 +82,28 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         if (dealerOptional.isPresent()) {
             Dealer dealer = dealerOptional.get();
+            String username = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
+                    ? dealer.getEmail().trim()
+                    : (dealer.getMobileNumber() != null ? dealer.getMobileNumber().trim() : input);
+
+            java.util.List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + dealer.getRole().name()));
+
+            // If dealer is marked as Freelancer or exists in Inspector table as FREELANCER, add ROLE_FREELANCER
+            if (Boolean.TRUE.equals(dealer.getIsFreelancer()) || 
+                inspectorRepository.findByEmailOrMobileNumber(input, input)
+                    .map(i -> i.getRole() == com.bidding.enums.Role.FREELANCER).orElse(false)) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_FREELANCER"));
+            }
+
             return new org.springframework.security.core.userdetails.User(
-                    dealer.getEmail() != null ? dealer.getEmail() : input,
+                    username,
                     dealer.getPassword(),
                     true,
                     true,
                     true,
                     true,
-                    Collections.singletonList(
-                            new SimpleGrantedAuthority("ROLE_" + dealer.getRole().name())
-                    )
+                    authorities
             );
         }
 

@@ -141,6 +141,17 @@ public class AdminInspectionController {
                 .build());
     }
 
+    @PostMapping("/api/admin/dealer/{id}/make-freelancer")
+    @Operation(summary = "Make dealer a freelancer (dual-role)")
+    public ResponseEntity<ApiResponse<DealerResponseDTO>> makeDealerFreelancer(@PathVariable Long id) {
+        DealerResponseDTO response = inspectionService.makeDealerFreelancer(id);
+        return ResponseEntity.ok(ApiResponse.<DealerResponseDTO>builder()
+                .success(true)
+                .message("Dealer successfully granted Freelancer access.")
+                .data(response)
+                .build());
+    }
+
     @DeleteMapping("/api/admin/dealer/{id}")
     @Operation(summary = "Delete dealer (Admin)")
     public ResponseEntity<ApiResponse<Void>> deleteDealer(@PathVariable Long id) {

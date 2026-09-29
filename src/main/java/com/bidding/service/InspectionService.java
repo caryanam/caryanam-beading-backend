@@ -54,6 +54,8 @@ public interface InspectionService {
 
     DealerResponseDTO updateDealer(Long id, DealerResponseDTO dto);
 
+    DealerResponseDTO makeDealerFreelancer(Long id);
+
     void deleteDealer(Long id);
 
     void goLive(Long id);

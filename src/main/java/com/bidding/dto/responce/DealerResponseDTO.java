@@ -23,4 +23,5 @@ public class DealerResponseDTO {
     private Long totalBids;
     private Long wonBidsCount;
     private List<DealerWonBidDTO> wonBids;
+    private Boolean isFreelancer;
 }

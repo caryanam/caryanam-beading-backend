@@ -68,7 +68,7 @@ public class BiddingServiceImpl implements BiddingService {
         }
 
         // 5. Find dealer placing the bid
-        Dealer dealer = dealerRepository.findByEmail(dealerEmail)
+        Dealer dealer = dealerRepository.findByEmailOrMobileNumber(dealerEmail, dealerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Dealer not found"));
 
         Dealer previousHighestBidder = lockedVehicle.getCurrentHighestBidder();
@@ -101,8 +101,12 @@ public class BiddingServiceImpl implements BiddingService {
         log.info("Bid successfully saved. New highest bid: {} by Dealer: {}", amount, dealer.getDealershipName());
 
         // Create Notifications
-        String vehicleTitle = String.format("%s %s (%s)", lockedVehicle.getBrand(), lockedVehicle.getModel(), lockedVehicle.getVehicleNumber());
+        String vehicleTitleForAdmin = String.format("%s %s (%s)", lockedVehicle.getBrand(), lockedVehicle.getModel(), lockedVehicle.getVehicleNumber());
+        String vehicleTitleForDealer = (lockedVehicle.getBrand() + " " + lockedVehicle.getModel() + (lockedVehicle.getVariant() != null && !lockedVehicle.getVariant().isEmpty() ? " " + lockedVehicle.getVariant() : "")).trim();
         String dealerName = dealer.getDealershipName() != null ? dealer.getDealershipName() : dealer.getOwnerName();
+        String dealerRecipient = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
+                ? dealer.getEmail().trim()
+                : dealer.getMobileNumber();
 
         // Admin Notification
         notificationService.createNotification(
@@ -110,28 +114,31 @@ public class BiddingServiceImpl implements BiddingService {
                 null,
                 inspectionId,
                 "🚨 New Bid Placed: ₹" + String.format("%,.0f", amount),
-                "Dealer " + dealerName + " placed a bid of ₹" + String.format("%,.0f", amount) + " on " + vehicleTitle + ".",
+                "Dealer " + dealerName + " placed a bid of ₹" + String.format("%,.0f", amount) + " on " + vehicleTitleForAdmin + ".",
                 "BID_PLACED"
         );
 
         // Dealer Notification
         notificationService.createNotification(
                 "DEALER",
-                dealer.getEmail(),
+                dealerRecipient,
                 inspectionId,
                 "✅ Bid Confirmed: ₹" + String.format("%,.0f", amount),
-                "Your bid of ₹" + String.format("%,.0f", amount) + " for " + vehicleTitle + " has been successfully submitted.",
+                "Your bid of ₹" + String.format("%,.0f", amount) + " for " + vehicleTitleForDealer + " has been successfully submitted.",
                 "BID_PLACED"
         );
 
         // Outbid Alert Notification for Previous Bidder
         if (previousHighestBidder != null && !previousHighestBidder.getId().equals(dealer.getId())) {
+            String prevRecipient = (previousHighestBidder.getEmail() != null && !previousHighestBidder.getEmail().trim().isEmpty())
+                    ? previousHighestBidder.getEmail().trim()
+                    : previousHighestBidder.getMobileNumber();
             notificationService.createNotification(
                     "DEALER",
-                    previousHighestBidder.getEmail(),
+                    prevRecipient,
                     inspectionId,
-                    "⚡ Outbid Alert: " + vehicleTitle,
-                    "Another dealer placed a higher bid of ₹" + String.format("%,.0f", amount) + " on " + vehicleTitle + ". Outbid now to reclaim highest bidder status!",
+                    "⚡ Outbid Alert: " + vehicleTitleForDealer,
+                    "Another dealer placed a higher bid of ₹" + String.format("%,.0f", amount) + " on " + vehicleTitleForDealer + ". Outbid now to reclaim highest bidder status!",
                     "OUTBID"
             );
         }
@@ -168,7 +175,10 @@ public class BiddingServiceImpl implements BiddingService {
     @Override
     @Transactional(readOnly = true)
     public List<DealerBidResponseDTO> getDealerBidHistory(String dealerEmail) {
-        List<Bid> bids = bidRepository.findByDealerEmailOrderByCreatedAtDesc(dealerEmail);
+        Dealer dealer = dealerRepository.findByEmailOrMobileNumber(dealerEmail, dealerEmail).orElse(null);
+        List<Bid> bids = (dealer != null)
+                ? bidRepository.findByDealerIdOrderByCreatedAtDesc(dealer.getId())
+                : bidRepository.findByDealerEmailOrderByCreatedAtDesc(dealerEmail);
         
         Map<Long, Bid> highestBidPerInspection = new HashMap<>();
         for (Bid b : bids) {

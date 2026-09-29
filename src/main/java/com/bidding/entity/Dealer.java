@@ -25,7 +25,7 @@ public class Dealer {
     @Column(nullable = false)
     private String ownerName;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = true)
     private String email;
 
     @Column(nullable = false, unique = true, length = 10)
@@ -48,4 +48,8 @@ public class Dealer {
     private String area;
 
     private String city;
+
+    @Builder.Default
+    @Column(name = "is_freelancer")
+    private Boolean isFreelancer = false;
 }

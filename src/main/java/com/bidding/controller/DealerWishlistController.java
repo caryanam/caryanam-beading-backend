@@ -52,7 +52,7 @@ public class DealerWishlistController {
     @GetMapping
     @Operation(summary = "Get list of all inspections on dealer's wishlist")
     public ResponseEntity<ApiResponse<List<InspectionSummaryResponse>>> getWishlist(Principal principal) {
-        Dealer dealer = dealerRepository.findByEmail(principal.getName())
+        Dealer dealer = dealerRepository.findByEmailOrMobileNumber(principal.getName(), principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("Dealer not found"));
 
         List<Wishlist> wishlistItems = wishlistRepository.findByDealerId(dealer.getId());
@@ -107,7 +107,7 @@ public class DealerWishlistController {
     @PostMapping("/add/{inspectionId}")
     @Operation(summary = "Add an inspection to dealer's wishlist")
     public ResponseEntity<ApiResponse<Void>> addToWishlist(@PathVariable Long inspectionId, Principal principal) {
-        Dealer dealer = dealerRepository.findByEmail(principal.getName())
+        Dealer dealer = dealerRepository.findByEmailOrMobileNumber(principal.getName(), principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("Dealer not found"));
 
         Inspection inspection = inspectionRepository.findById(inspectionId)
@@ -130,7 +130,7 @@ public class DealerWishlistController {
     @DeleteMapping("/remove/{inspectionId}")
     @Operation(summary = "Remove an inspection from dealer's wishlist")
     public ResponseEntity<ApiResponse<Void>> removeFromWishlist(@PathVariable Long inspectionId, Principal principal) {
-        Dealer dealer = dealerRepository.findByEmail(principal.getName())
+        Dealer dealer = dealerRepository.findByEmailOrMobileNumber(principal.getName(), principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("Dealer not found"));
 
         wishlistRepository.findByDealerIdAndInspectionId(dealer.getId(), inspectionId)

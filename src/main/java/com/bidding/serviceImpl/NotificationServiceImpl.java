@@ -20,16 +20,31 @@ import java.util.stream.Collectors;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final com.bidding.repo.DealerRepository dealerRepository;
+
+    private String sanitizeDealerText(String text) {
+        if (text == null) return null;
+        return text.replaceAll("\\s*\\([A-Za-z0-9\\-\\s]+\\)", "")
+                   .replaceAll("(?i)\\bvehicle\\s+[A-Za-z0-9\\-]{4,15}\\b", "vehicle")
+                   .trim();
+    }
 
     @Override
     @Transactional
     public void createNotification(String recipientRole, String recipientEmail, Long inspectionId, String title, String messageStr, String type) {
+        String finalTitle = title;
+        String finalMessage = messageStr;
+        if ("DEALER".equalsIgnoreCase(recipientRole)) {
+            finalTitle = sanitizeDealerText(title);
+            finalMessage = sanitizeDealerText(messageStr);
+        }
+
         Notification notification = Notification.builder()
                 .recipientRole(recipientRole)
                 .recipientEmail(recipientEmail)
                 .inspectionId(inspectionId)
-                .title(title)
-                .message(messageStr)
+                .title(finalTitle)
+                .message(finalMessage)
                 .type(type)
                 .isRead(false)
                 .createdAt(LocalDateTime.now())
@@ -47,8 +62,8 @@ public class NotificationServiceImpl implements NotificationService {
                 Message msg = Message.builder()
                         .setTopic(topic)
                         .setNotification(com.google.firebase.messaging.Notification.builder()
-                                .setTitle(title)
-                                .setBody(messageStr)
+                                .setTitle(finalTitle)
+                                .setBody(finalMessage)
                                 .build())
                         .build();
                 FirebaseMessaging.getInstance().send(msg);
@@ -69,8 +84,21 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<NotificationDTO> getDealerNotifications(String dealerEmail) {
-        return notificationRepository.findForDealer(dealerEmail).stream()
+    public List<NotificationDTO> getDealerNotifications(String dealerIdentifier) {
+        String email = dealerIdentifier;
+        String mobile = dealerIdentifier;
+        if (dealerRepository != null && dealerIdentifier != null) {
+            com.bidding.entity.Dealer d = dealerRepository.findByEmailOrMobileNumber(dealerIdentifier, dealerIdentifier).orElse(null);
+            if (d != null) {
+                if (d.getEmail() != null && !d.getEmail().trim().isEmpty()) {
+                    email = d.getEmail().trim();
+                }
+                if (d.getMobileNumber() != null && !d.getMobileNumber().trim().isEmpty()) {
+                    mobile = d.getMobileNumber().trim();
+                }
+            }
+        }
+        return notificationRepository.findForDealer(email, mobile).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
@@ -100,8 +128,21 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
-    public void markAllAsReadForDealer(String dealerEmail) {
-        notificationRepository.markAllAsReadForDealer(dealerEmail);
+    public void markAllAsReadForDealer(String dealerIdentifier) {
+        String email = dealerIdentifier;
+        String mobile = dealerIdentifier;
+        if (dealerRepository != null && dealerIdentifier != null) {
+            com.bidding.entity.Dealer d = dealerRepository.findByEmailOrMobileNumber(dealerIdentifier, dealerIdentifier).orElse(null);
+            if (d != null) {
+                if (d.getEmail() != null && !d.getEmail().trim().isEmpty()) {
+                    email = d.getEmail().trim();
+                }
+                if (d.getMobileNumber() != null && !d.getMobileNumber().trim().isEmpty()) {
+                    mobile = d.getMobileNumber().trim();
+                }
+            }
+        }
+        notificationRepository.markAllAsReadForDealer(email, mobile);
     }
 
     @Override
@@ -116,13 +157,19 @@ public class NotificationServiceImpl implements NotificationService {
             java.time.ZonedDateTime istTime = n.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata"));
             formattedTime = istTime.format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm:ss a"));
         }
+        String title = n.getTitle();
+        String message = n.getMessage();
+        if ("DEALER".equalsIgnoreCase(n.getRecipientRole())) {
+            title = sanitizeDealerText(title);
+            message = sanitizeDealerText(message);
+        }
         return NotificationDTO.builder()
                 .id(n.getId())
                 .inspectionId(n.getInspectionId())
                 .recipientRole(n.getRecipientRole())
                 .recipientEmail(n.getRecipientEmail())
-                .title(n.getTitle())
-                .message(n.getMessage())
+                .title(title)
+                .message(message)
                 .type(n.getType())
                 .isRead(n.getIsRead())
                 .createdAt(formattedTime)

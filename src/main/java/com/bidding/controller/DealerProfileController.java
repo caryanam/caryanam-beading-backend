@@ -24,6 +24,8 @@ import jakarta.validation.constraints.Size;
 public class DealerProfileController {
 
     private final DealerRepository dealerRepository;
+    private final com.bidding.repo.AdminRepository adminRepository;
+    private final com.bidding.repo.InspectorRepository inspectorRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.bidding.repo.VehicleRepository vehicleRepository;
     private final com.bidding.repo.BidRepository bidRepository;
@@ -88,11 +90,60 @@ public class DealerProfileController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ProfileUpdateRequest request) {
         Dealer dealer = getDealer(userDetails);
-        if (request.getFullName() != null) dealer.setOwnerName(request.getFullName());
-        if (request.getDealershipName() != null) dealer.setDealershipName(request.getDealershipName());
-        if (request.getAddress() != null) dealer.setAddress(request.getAddress());
-        if (request.getArea() != null) dealer.setArea(request.getArea());
-        if (request.getCity() != null) dealer.setCity(request.getCity());
+
+        if (request.getFullName() != null && !request.getFullName().trim().isEmpty()) {
+            dealer.setOwnerName(request.getFullName().trim());
+        }
+        if (request.getDealershipName() != null && !request.getDealershipName().trim().isEmpty()) {
+            dealer.setDealershipName(request.getDealershipName().trim());
+        }
+        if (request.getAddress() != null) {
+            dealer.setAddress(request.getAddress().trim());
+        }
+        if (request.getArea() != null) {
+            dealer.setArea(request.getArea().trim());
+        }
+        if (request.getCity() != null) {
+            dealer.setCity(request.getCity().trim());
+        }
+
+        // Update Mobile Number if provided
+        if (request.getMobileNumber() != null && !request.getMobileNumber().trim().isEmpty()) {
+            String newMobile = request.getMobileNumber().trim();
+            if (!newMobile.matches("^[6-9][0-9]{9}$")) {
+                throw new IllegalArgumentException("Mobile number must be a 10-digit number starting with 6, 7, 8, or 9");
+            }
+            if (!newMobile.equals(dealer.getMobileNumber())) {
+                if (adminRepository.existsByMobileNumber(newMobile) ||
+                    inspectorRepository.existsByMobileNumber(newMobile) ||
+                    dealerRepository.findByMobileNumber(newMobile).filter(d -> !d.getId().equals(dealer.getId())).isPresent()) {
+                    throw new com.bidding.exception.ResourceAlreadyExistsException("Mobile number is already registered to another account");
+                }
+                dealer.setMobileNumber(newMobile);
+            }
+        }
+
+        // Update Email Address if provided
+        if (request.getEmail() != null) {
+            String newEmail = request.getEmail().trim();
+            if (!newEmail.isEmpty()) {
+                if (!newEmail.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                    throw new IllegalArgumentException("Invalid email address format");
+                }
+                if (!newEmail.equalsIgnoreCase(dealer.getEmail())) {
+                    if (adminRepository.existsByEmail(newEmail) ||
+                        inspectorRepository.existsByEmail(newEmail) ||
+                        dealerRepository.findByEmail(newEmail).filter(d -> !d.getId().equals(dealer.getId())).isPresent()) {
+                        throw new com.bidding.exception.ResourceAlreadyExistsException("Email is already registered to another account");
+                    }
+                    dealer.setEmail(newEmail);
+                }
+            } else {
+                dealer.setEmail(null);
+            }
+        }
+
+        dealer.setUpdatedAt(java.time.LocalDateTime.now());
         dealerRepository.save(dealer);
 
         DealerResponseDTO dto = DealerResponseDTO.builder()
@@ -137,9 +188,9 @@ public class DealerProfileController {
     }
 
     private Dealer getDealer(UserDetails userDetails) {
-        String email = userDetails.getUsername();
-        return dealerRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Dealer not found with email: " + email));
+        String identifier = userDetails.getUsername();
+        return dealerRepository.findByEmailOrMobileNumber(identifier, identifier)
+                .orElseThrow(() -> new RuntimeException("Dealer not found with identifier: " + identifier));
     }
 
     @Getter
@@ -149,6 +200,7 @@ public class DealerProfileController {
     public static class ProfileUpdateRequest {
         private String fullName;
         private String dealershipName;
+        private String email;
         private String mobileNumber;
         private String address;
         private String area;
