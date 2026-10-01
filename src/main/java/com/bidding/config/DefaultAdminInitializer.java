@@ -5,6 +5,7 @@ import com.bidding.enums.Role;
 import com.bidding.repo.AdminRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -14,9 +15,21 @@ public class DefaultAdminInitializer implements CommandLineRunner {
 
     private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(String... args) {
+
+        // Auto-migrate dealers table: make email column nullable in MySQL if not already
+        try {
+            jdbcTemplate.execute("ALTER TABLE dealers MODIFY COLUMN email VARCHAR(255) NULL");
+            System.out.println("Dealers table migration: email column successfully set to NULLABLE.");
+        } catch (Exception e1) {
+            try {
+                jdbcTemplate.execute("ALTER TABLE dealers MODIFY email VARCHAR(255) NULL");
+                System.out.println("Dealers table migration: email column successfully set to NULLABLE.");
+            } catch (Exception ignored) {}
+        }
 
         if (!adminRepository.existsByEmail("admin@gmail.com")) {
 

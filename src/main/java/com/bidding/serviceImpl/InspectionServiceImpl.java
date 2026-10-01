@@ -48,6 +48,7 @@ public class InspectionServiceImpl implements InspectionService {
     private final PasswordEncoder passwordEncoder;
     private final AuctionWebSocketHandler webSocketHandler;
     private final com.bidding.service.NotificationService notificationService;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url}")
     private String baseUrl;
@@ -2292,6 +2293,9 @@ public class InspectionServiceImpl implements InspectionService {
             throw new IllegalArgumentException("Please upload a valid non-empty Excel or CSV file.");
         }
 
+        // Ensure email column in MySQL allows NULL values for optional email support
+        ensureDealersEmailNullable();
+
         java.util.List<String> issues = new java.util.ArrayList<>();
         int totalRows = 0;
         int importedCount = 0;
@@ -2556,8 +2560,28 @@ public class InspectionServiceImpl implements InspectionService {
                 .createdAt(java.time.LocalDateTime.now())
                 .build();
 
-        dealerRepository.save(dealer);
+        try {
+            dealerRepository.save(dealer);
+        } catch (Exception ex) {
+            String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
+            if (msg.contains("email") && msg.contains("null")) {
+                ensureDealersEmailNullable();
+                dealerRepository.save(dealer);
+            } else {
+                throw ex;
+            }
+        }
         return null;
+    }
+
+    private void ensureDealersEmailNullable() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE dealers MODIFY COLUMN email VARCHAR(255) NULL");
+        } catch (Exception e1) {
+            try {
+                jdbcTemplate.execute("ALTER TABLE dealers MODIFY email VARCHAR(255) NULL");
+            } catch (Exception ignored) {}
+        }
     }
 
     private boolean isRowEmpty(org.apache.poi.ss.usermodel.Row row) {
