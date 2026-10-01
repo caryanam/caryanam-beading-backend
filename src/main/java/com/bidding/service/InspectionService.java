@@ -58,6 +58,8 @@ public interface InspectionService {
 
     void deleteDealer(Long id);
 
+    com.bidding.dto.responce.DealerBulkDeleteResponseDTO deleteDealers(List<Long> ids);
+
     void goLive(Long id);
 
     void goLive(Long id, Integer customDurationMinutes);

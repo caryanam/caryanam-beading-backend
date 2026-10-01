@@ -162,6 +162,62 @@ public class AdminInspectionController {
                 .build());
     }
 
+    @PostMapping("/api/admin/dealers/delete-multiple")
+    @Operation(summary = "Delete multiple dealers (Only if 0 bids and 0 won)")
+    public ResponseEntity<ApiResponse<com.bidding.dto.responce.DealerBulkDeleteResponseDTO>> deleteMultipleDealers(
+            @RequestBody java.util.Map<String, Object> body) {
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        Object rawIds = body.get("ids");
+        if (rawIds instanceof java.util.List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Number n) {
+                    ids.add(n.longValue());
+                } else if (item != null) {
+                    try {
+                        ids.add(Long.parseLong(item.toString().trim()));
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+        com.bidding.dto.responce.DealerBulkDeleteResponseDTO result = inspectionService.deleteDealers(ids);
+        String msg = String.format("%d dealer(s) deleted successfully. %d skipped (have active bids or won auctions).",
+                result.getDeletedCount(), result.getSkippedCount());
+        return ResponseEntity.ok(ApiResponse.<com.bidding.dto.responce.DealerBulkDeleteResponseDTO>builder()
+                .success(result.getDeletedCount() > 0 || result.getSkippedCount() == 0)
+                .message(msg)
+                .data(result)
+                .build());
+    }
+
+    @DeleteMapping("/api/admin/dealers")
+    @Operation(summary = "Batch delete dealers via DELETE")
+    public ResponseEntity<ApiResponse<com.bidding.dto.responce.DealerBulkDeleteResponseDTO>> deleteDealersDeleteMethod(
+            @RequestBody(required = false) java.util.Map<String, Object> body,
+            @RequestParam(required = false) java.util.List<Long> ids) {
+        java.util.List<Long> targetIds = new java.util.ArrayList<>();
+        if (ids != null && !ids.isEmpty()) {
+            targetIds.addAll(ids);
+        } else if (body != null && body.get("ids") instanceof java.util.List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Number n) {
+                    targetIds.add(n.longValue());
+                } else if (item != null) {
+                    try {
+                        targetIds.add(Long.parseLong(item.toString().trim()));
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+        com.bidding.dto.responce.DealerBulkDeleteResponseDTO result = inspectionService.deleteDealers(targetIds);
+        String msg = String.format("%d dealer(s) deleted successfully. %d skipped (have active bids or won auctions).",
+                result.getDeletedCount(), result.getSkippedCount());
+        return ResponseEntity.ok(ApiResponse.<com.bidding.dto.responce.DealerBulkDeleteResponseDTO>builder()
+                .success(result.getDeletedCount() > 0 || result.getSkippedCount() == 0)
+                .message(msg)
+                .data(result)
+                .build());
+    }
+
     @PostMapping("/api/admin/dealers/import")
     @Operation(summary = "Import dealers from Excel sheet")
     public ResponseEntity<ApiResponse<com.bidding.dto.responce.DealerImportResponseDTO>> importDealers(

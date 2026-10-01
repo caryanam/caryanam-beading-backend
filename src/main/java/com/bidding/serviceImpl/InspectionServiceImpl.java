@@ -193,6 +193,12 @@ public class InspectionServiceImpl implements InspectionService {
         if (existingInspection.isPresent()) {
             inspection = existingInspection.get();
             vehicle = inspection.getVehicle();
+            if (inspection.getInspector() == null) {
+                inspection.setInspector(inspector);
+            }
+            if (inspection.getSubmittedBy() == null) {
+                inspection.setSubmittedBy(inspector);
+            }
         } else {
             vehicle = Vehicle.builder()
                     .vehicleNumber(vehicleNumber)
@@ -202,6 +208,7 @@ public class InspectionServiceImpl implements InspectionService {
             inspection = Inspection.builder()
                     .vehicle(vehicle)
                     .inspector(inspector)
+                    .submittedBy(inspector)
                     .status(InspectionStatus.DRAFT)
                     .build();
             inspection = inspectionRepository.save(inspection);
@@ -567,6 +574,9 @@ public class InspectionServiceImpl implements InspectionService {
         inspection.setStatus(InspectionStatus.SUBMITTED);
         inspection.setSubmittedAt(LocalDateTime.now());
         inspection.setSubmittedBy(inspector);
+        if (inspection.getInspector() == null) {
+            inspection.setInspector(inspector);
+        }
         inspection.setUpdatedAt(LocalDateTime.now());
         inspectionRepository.save(inspection);
 
@@ -766,13 +776,61 @@ public class InspectionServiceImpl implements InspectionService {
                 .collect(Collectors.toList());
     }
 
+    public boolean isFreelancerInspection(Inspection ins) {
+        if (ins == null) return false;
+
+        if (ins.getInspector() != null && ins.getInspector().getRole() == com.bidding.enums.Role.FREELANCER) {
+            return true;
+        }
+        if (ins.getSubmittedBy() != null && ins.getSubmittedBy().getRole() == com.bidding.enums.Role.FREELANCER) {
+            return true;
+        }
+
+        if (ins.getInspector() != null) {
+            String email = ins.getInspector().getEmail();
+            String mobile = ins.getInspector().getMobileNumber();
+            if ((email != null && !email.trim().isEmpty()) || (mobile != null && !mobile.trim().isEmpty())) {
+                Optional<Dealer> d = dealerRepository.findByEmailOrMobileNumber(
+                        email != null ? email : "",
+                        mobile != null ? mobile : ""
+                );
+                if (d.isPresent() && Boolean.TRUE.equals(d.get().getIsFreelancer())) {
+                    return true;
+                }
+            }
+        }
+        if (ins.getSubmittedBy() != null) {
+            String email = ins.getSubmittedBy().getEmail();
+            String mobile = ins.getSubmittedBy().getMobileNumber();
+            if ((email != null && !email.trim().isEmpty()) || (mobile != null && !mobile.trim().isEmpty())) {
+                Optional<Dealer> d = dealerRepository.findByEmailOrMobileNumber(
+                        email != null ? email : "",
+                        mobile != null ? mobile : ""
+                );
+                if (d.isPresent() && Boolean.TRUE.equals(d.get().getIsFreelancer())) {
+                    return true;
+                }
+            }
+        }
+
+        if (ins.getVehicle() != null && ins.getVehicle().getInspectorCode() != null) {
+            if (ins.getVehicle().getInspectorCode().toUpperCase().startsWith("FREELANCER")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<FreelancerVehicleResponse> getAllFreelancerSubmissionsForAdmin() {
         return inspectionRepository.findAll().stream()
                 .filter(ins -> ins.getStatus() != InspectionStatus.DRAFT && ins.getStatus() != InspectionStatus.IN_PROGRESS)
-                .filter(ins -> ins.getInspector() != null && ins.getInspector().getRole() == com.bidding.enums.Role.FREELANCER)
+                .filter(this::isFreelancerInspection)
                 .map(ins -> {
+
+                    
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
 
@@ -850,7 +908,14 @@ public class InspectionServiceImpl implements InspectionService {
         final LocalDateTime now = LocalDateTime.now();
 
         return inspectionRepository.findAll().stream()
-                .filter(ins -> ins.getStatus() == InspectionStatus.APPROVED)
+                .filter(ins -> {
+                    boolean isFreelancer = isFreelancerInspection(ins);
+                    if (isFreelancer) {
+                        return ins.getStatus() != InspectionStatus.REJECTED;
+                    } else {
+                        return ins.getStatus() == InspectionStatus.APPROVED;
+                    }
+                })
                 .filter(ins -> {
                     Vehicle v = ins.getVehicle();
                     if (v == null) {
@@ -981,9 +1046,8 @@ public class InspectionServiceImpl implements InspectionService {
         final LocalDateTime now = LocalDateTime.now();
 
         return inspectionRepository.findAll().stream()
-                .filter(ins -> ins.getStatus() == InspectionStatus.APPROVED)
-                .filter(ins -> (ins.getInspector() != null && ins.getInspector().getRole() == com.bidding.enums.Role.FREELANCER)
-                        || (ins.getSubmittedBy() != null && ins.getSubmittedBy().getRole() == com.bidding.enums.Role.FREELANCER))
+                .filter(this::isFreelancerInspection)
+                .filter(ins -> ins.getStatus() != InspectionStatus.REJECTED)
                 .filter(ins -> {
                     Vehicle v = ins.getVehicle();
                     if (v == null) {
@@ -2400,18 +2464,12 @@ public class InspectionServiceImpl implements InspectionService {
             return "Mobile number " + cleanMobile + " is already registered.";
         }
 
-        // Check / format email
-        String finalEmail;
+        // Check / format email (Email is optional: no fallback emails generated)
+        String finalEmail = null;
         if (!email.isEmpty() && email.contains("@")) {
             finalEmail = email.toLowerCase();
             if (dealerRepository.existsByEmail(finalEmail)) {
                 return "Email '" + finalEmail + "' is already registered.";
-            }
-        } else {
-            // Auto-generate unique fallback email
-            finalEmail = cleanMobile + "@caryanam.com";
-            if (dealerRepository.existsByEmail(finalEmail)) {
-                return "Mobile/Email is already registered (" + finalEmail + ").";
             }
         }
 
