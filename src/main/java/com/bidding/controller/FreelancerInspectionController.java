@@ -388,20 +388,28 @@ public class FreelancerInspectionController {
             Dealer dealer = dealerOpt.get();
             String email = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
                     ? dealer.getEmail().trim()
-                    : (dealer.getMobileNumber() + "@caryanam.com");
+                    : null;
             String mobile = dealer.getMobileNumber();
 
-            Optional<Inspector> linked = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
-            if (linked.isPresent()) {
-                return linked.get().getId();
+            Optional<Inspector> linked = Optional.empty();
+            if (email != null) {
+                linked = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
+            } else if (mobile != null) {
+                linked = inspectorRepository.findByMobileNumber(mobile);
             }
-            if (dealer.getEmail() != null) {
+            if (!linked.isPresent() && dealer.getEmail() != null) {
                 linked = inspectorRepository.findByEmail(dealer.getEmail());
-                if (linked.isPresent()) return linked.get().getId();
             }
-            if (dealer.getMobileNumber() != null) {
+            if (!linked.isPresent() && dealer.getMobileNumber() != null) {
                 linked = inspectorRepository.findByMobileNumber(dealer.getMobileNumber());
-                if (linked.isPresent()) return linked.get().getId();
+            }
+            if (linked.isPresent()) {
+                Inspector ins = linked.get();
+                if (ins.getEmail() != null && ins.getEmail().endsWith("@caryanam.com")) {
+                    ins.setEmail(null);
+                    inspectorRepository.save(ins);
+                }
+                return ins.getId();
             }
             if (Boolean.TRUE.equals(dealer.getIsFreelancer())) {
                 Inspector newFreelancer = Inspector.builder()
@@ -438,20 +446,28 @@ public class FreelancerInspectionController {
             Dealer dealer = dealerOpt.get();
             String email = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
                     ? dealer.getEmail().trim()
-                    : (dealer.getMobileNumber() + "@caryanam.com");
+                    : null;
             String mobile = dealer.getMobileNumber();
 
-            Optional<Inspector> linkedInspector = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
-            if (linkedInspector.isPresent()) {
-                return linkedInspector.get();
+            Optional<Inspector> linkedInspector = Optional.empty();
+            if (email != null) {
+                linkedInspector = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
+            } else if (mobile != null) {
+                linkedInspector = inspectorRepository.findByMobileNumber(mobile);
             }
-            if (dealer.getEmail() != null) {
+            if (!linkedInspector.isPresent() && dealer.getEmail() != null) {
                 linkedInspector = inspectorRepository.findByEmail(dealer.getEmail());
-                if (linkedInspector.isPresent()) return linkedInspector.get();
             }
-            if (dealer.getMobileNumber() != null) {
+            if (!linkedInspector.isPresent() && dealer.getMobileNumber() != null) {
                 linkedInspector = inspectorRepository.findByMobileNumber(dealer.getMobileNumber());
-                if (linkedInspector.isPresent()) return linkedInspector.get();
+            }
+            if (linkedInspector.isPresent()) {
+                Inspector ins = linkedInspector.get();
+                if (ins.getEmail() != null && ins.getEmail().endsWith("@caryanam.com")) {
+                    ins.setEmail(null);
+                    inspectorRepository.save(ins);
+                }
+                return ins;
             }
 
             // If dealer is marked as freelancer, create inspector record if not yet created

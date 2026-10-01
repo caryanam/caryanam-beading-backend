@@ -31,6 +31,19 @@ public class DefaultAdminInitializer implements CommandLineRunner {
             } catch (Exception ignored) {}
         }
 
+        // Auto-migrate inspectors table: make email column nullable and clean dummy @caryanam.com emails
+        try {
+            jdbcTemplate.execute("ALTER TABLE inspectors MODIFY COLUMN email VARCHAR(255) NULL");
+            jdbcTemplate.execute("UPDATE inspectors SET email = NULL WHERE email LIKE '%@caryanam.com'");
+            System.out.println("Inspectors table migration: email column set to NULLABLE and dummy emails cleared.");
+        } catch (Exception e2) {
+            try {
+                jdbcTemplate.execute("ALTER TABLE inspectors MODIFY email VARCHAR(255) NULL");
+                jdbcTemplate.execute("UPDATE inspectors SET email = NULL WHERE email LIKE '%@caryanam.com'");
+                System.out.println("Inspectors table migration: email column set to NULLABLE and dummy emails cleared.");
+            } catch (Exception ignored) {}
+        }
+
         if (!adminRepository.existsByEmail("admin@gmail.com")) {
 
             Admin admin = Admin.builder()

@@ -22,7 +22,7 @@ public class Inspector {
     @Column(nullable = false)
     private String fullName;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = true)
     private String email;
 
     @Column(nullable = false, unique = true, length = 10)

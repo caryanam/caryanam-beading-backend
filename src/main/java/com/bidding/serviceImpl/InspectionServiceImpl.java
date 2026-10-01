@@ -1700,10 +1700,14 @@ public class InspectionServiceImpl implements InspectionService {
                 .filter(inspector -> inspector.getRole() == Role.FREELANCER)
                 .map(inspector -> {
                     long uploads = inspectionRepository.findByInspectorId(inspector.getId()).size();
+                    String email = inspector.getEmail();
+                    if (email != null && (email.trim().isEmpty() || email.endsWith("@caryanam.com"))) {
+                        email = null;
+                    }
                     return InspectorResponseDTO.builder()
                             .id(inspector.getId())
                             .fullName(inspector.getFullName())
-                            .email(inspector.getEmail())
+                            .email(email)
                             .mobileNumber(inspector.getMobileNumber())
                             .role(inspector.getRole())
                             .uploads((int) uploads)
@@ -1797,18 +1801,27 @@ public class InspectionServiceImpl implements InspectionService {
         dealer.setUpdatedAt(LocalDateTime.now());
         dealerRepository.save(dealer);
 
+        ensureDealersEmailNullable();
+
         // Sync/Create Inspector record with Role.FREELANCER
         String email = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
                 ? dealer.getEmail().trim()
-                : (dealer.getMobileNumber() + "@caryanam.com");
+                : null;
         String mobile = dealer.getMobileNumber();
 
-        Optional<Inspector> existingFreelancer = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
+        Optional<Inspector> existingFreelancer = Optional.empty();
+        if (email != null) {
+            existingFreelancer = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
+        } else if (mobile != null) {
+            existingFreelancer = inspectorRepository.findByMobileNumber(mobile);
+        }
+
         if (existingFreelancer.isPresent()) {
             Inspector ins = existingFreelancer.get();
             ins.setRole(Role.FREELANCER);
             ins.setPassword(dealer.getPassword());
             ins.setFullName(dealer.getOwnerName());
+            ins.setEmail(email);
             ins.setUpdatedAt(LocalDateTime.now());
             inspectorRepository.save(ins);
         } else {
@@ -2580,6 +2593,15 @@ public class InspectionServiceImpl implements InspectionService {
         } catch (Exception e1) {
             try {
                 jdbcTemplate.execute("ALTER TABLE dealers MODIFY email VARCHAR(255) NULL");
+            } catch (Exception ignored) {}
+        }
+        try {
+            jdbcTemplate.execute("ALTER TABLE inspectors MODIFY COLUMN email VARCHAR(255) NULL");
+            jdbcTemplate.execute("UPDATE inspectors SET email = NULL WHERE email LIKE '%@caryanam.com'");
+        } catch (Exception e2) {
+            try {
+                jdbcTemplate.execute("ALTER TABLE inspectors MODIFY email VARCHAR(255) NULL");
+                jdbcTemplate.execute("UPDATE inspectors SET email = NULL WHERE email LIKE '%@caryanam.com'");
             } catch (Exception ignored) {}
         }
     }

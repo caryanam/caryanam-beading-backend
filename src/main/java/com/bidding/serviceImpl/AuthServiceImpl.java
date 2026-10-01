@@ -285,7 +285,7 @@ public class AuthServiceImpl implements AuthService {
                 if (freelancerId == null) {
                     String fEmail = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
                             ? dealer.getEmail().trim()
-                            : (dealer.getMobileNumber() + "@caryanam.com");
+                            : null;
                     Inspector freelancer = Inspector.builder()
                             .fullName(dealer.getOwnerName() != null ? dealer.getOwnerName() : dealer.getDealershipName())
                             .email(fEmail)
