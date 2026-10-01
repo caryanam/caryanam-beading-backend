@@ -8,6 +8,7 @@ import com.bidding.dto.responce.InspectorStatsResponse;
 import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.BidResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
+import com.bidding.dto.responce.DealerBulkDeleteResponseDTO;
 import com.bidding.entity.*;
 import com.bidding.config.AuctionWebSocketHandler;
 import com.bidding.enums.Role;
@@ -1881,31 +1882,86 @@ public class InspectionServiceImpl implements InspectionService {
         Dealer dealer = dealerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Dealer not found with id: " + id));
 
-        // 1. Unlink vehicles where this dealer is set as current highest bidder
-        List<Vehicle> vehiclesWithDealer = vehicleRepository.findAll().stream()
-                .filter(v -> v.getCurrentHighestBidder() != null && v.getCurrentHighestBidder().getId().equals(id))
-                .collect(Collectors.toList());
-        for (Vehicle v : vehiclesWithDealer) {
-            v.setCurrentHighestBidder(null);
-            vehicleRepository.save(v);
+        // Enforce rule: delete only if 0 bids and 0 won auctions
+        long totalBids = bidRepository.countByDealerId(id);
+        List<com.bidding.dto.responce.DealerWonBidDTO> wonBids = getWonBidsForDealer(id);
+        boolean isWinningBidder = vehicleRepository.findAll().stream()
+                .anyMatch(v -> v.getCurrentHighestBidder() != null && v.getCurrentHighestBidder().getId().equals(id));
+
+        int wonCount = wonBids != null ? wonBids.size() : 0;
+        if (totalBids > 0 || wonCount > 0 || isWinningBidder) {
+            String name = dealer.getDealershipName() != null ? dealer.getDealershipName() : dealer.getOwnerName();
+            throw new IllegalArgumentException(String.format(
+                    "Cannot delete dealer '%s' (ID #%d): Dealer has %d bid(s) and %d won auction(s). Only dealers with 0 bids and 0 won auctions can be deleted.",
+                    name, id, totalBids, wonCount
+            ));
         }
 
-        // 2. Remove bids placed by this dealer to prevent foreign key errors
-        List<Bid> dealerBids = bidRepository.findAll().stream()
-                .filter(b -> b.getDealer() != null && b.getDealer().getId().equals(id))
-                .collect(Collectors.toList());
-        if (!dealerBids.isEmpty()) {
-            bidRepository.deleteAll(dealerBids);
-        }
-
-        // 3. Remove wishlist items saved by this dealer
+        // 1. Remove wishlist items saved by this dealer
         List<Wishlist> dealerWishlist = wishlistRepository.findByDealerId(id);
         if (dealerWishlist != null && !dealerWishlist.isEmpty()) {
             wishlistRepository.deleteAll(dealerWishlist);
         }
 
-        // 4. Delete dealer record
+        // 2. Delete dealer record
         dealerRepository.delete(dealer);
+    }
+
+    @Override
+    @Transactional
+    public DealerBulkDeleteResponseDTO deleteDealers(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("No dealer IDs provided for deletion.");
+        }
+
+        int deletedCount = 0;
+        int skippedCount = 0;
+        List<Long> deletedIds = new ArrayList<>();
+        List<String> skippedReasons = new ArrayList<>();
+
+        for (Long id : ids) {
+            if (id == null) continue;
+            Optional<Dealer> dealerOpt = dealerRepository.findById(id);
+            if (dealerOpt.isEmpty()) {
+                skippedCount++;
+                skippedReasons.add("Dealer #" + id + ": Not found.");
+                continue;
+            }
+
+            Dealer dealer = dealerOpt.get();
+            String name = dealer.getDealershipName() != null ? dealer.getDealershipName() : dealer.getOwnerName();
+
+            long totalBids = bidRepository.countByDealerId(id);
+            List<com.bidding.dto.responce.DealerWonBidDTO> wonBids = getWonBidsForDealer(id);
+            boolean isWinningBidder = vehicleRepository.findAll().stream()
+                    .anyMatch(v -> v.getCurrentHighestBidder() != null && v.getCurrentHighestBidder().getId().equals(id));
+
+            int wonCount = wonBids != null ? wonBids.size() : 0;
+            if (totalBids > 0 || wonCount > 0 || isWinningBidder) {
+                skippedCount++;
+                skippedReasons.add(String.format("'%s' (#%d): Has %d bid(s) and %d won auction(s).",
+                        name, id, totalBids, wonCount));
+                continue;
+            }
+
+            // Remove wishlist items
+            List<Wishlist> dealerWishlist = wishlistRepository.findByDealerId(id);
+            if (dealerWishlist != null && !dealerWishlist.isEmpty()) {
+                wishlistRepository.deleteAll(dealerWishlist);
+            }
+
+            dealerRepository.delete(dealer);
+            deletedCount++;
+            deletedIds.add(id);
+        }
+
+        return DealerBulkDeleteResponseDTO.builder()
+                .totalRequested(ids.size())
+                .deletedCount(deletedCount)
+                .skippedCount(skippedCount)
+                .deletedIds(deletedIds)
+                .skippedReasons(skippedReasons)
+                .build();
     }
 
     @Override
