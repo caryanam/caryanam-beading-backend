@@ -7,6 +7,7 @@ import com.bidding.dto.responce.InspectionSummaryResponse;
 import com.bidding.dto.responce.InspectorResponseDTO;
 import com.bidding.dto.responce.DealerResponseDTO;
 import com.bidding.dto.responce.BidResponseDTO;
+import com.bidding.dto.responce.FreelancerVehicleResponse;
 import com.bidding.service.InspectionService;
 import com.bidding.service.BiddingService;
 import com.bidding.dto.responce.NotificationDTO;
@@ -41,6 +42,18 @@ public class AdminInspectionController {
         return ResponseEntity.ok(ApiResponse.<List<InspectionSummaryResponse>>builder()
                 .success(true)
                 .message("Inspections retrieved successfully.")
+                .data(response)
+                .build());
+    }
+
+    @GetMapping("/api/admin/freelancer-inspections")
+    @Operation(summary = "Get all freelancer vehicle submissions for admin dashboard")
+    public ResponseEntity<ApiResponse<List<FreelancerVehicleResponse>>> getAllFreelancerInspections() {
+        List<FreelancerVehicleResponse> response = inspectionService.getAllFreelancerSubmissionsForAdmin();
+        
+        return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                .success(true)
+                .message("Freelancer vehicle submissions retrieved successfully.")
                 .data(response)
                 .build());
     }
