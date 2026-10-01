@@ -64,7 +64,7 @@ public interface InspectionService {
 
     void stopAuction(Long id);
 
-    void importDealers(org.springframework.web.multipart.MultipartFile file);
+    com.bidding.dto.responce.DealerImportResponseDTO importDealers(org.springframework.web.multipart.MultipartFile file);
 
     void submitSellerResponse(Long id, Boolean agreed, Double counterPrice, String message);
 

@@ -5,8 +5,11 @@ import com.bidding.dto.responce.ApiResponse;
 import com.bidding.dto.responce.InspectionDetailsResponse;
 import com.bidding.dto.responce.FreelancerVehicleResponse;
 import com.bidding.dto.responce.InspectorStatsResponse;
+import com.bidding.entity.Dealer;
 import com.bidding.entity.Inspector;
+import com.bidding.enums.Role;
 import com.bidding.exception.ResourceNotFoundException;
+import com.bidding.repo.DealerRepository;
 import com.bidding.repo.InspectorRepository;
 import com.bidding.service.InspectionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,7 +34,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -42,6 +48,7 @@ public class FreelancerInspectionController {
 
     private final InspectionService inspectionService;
     private final InspectorRepository inspectorRepository;
+    private final DealerRepository dealerRepository;
     private final com.bidding.service.NotificationService notificationService;
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url}")
@@ -92,10 +99,45 @@ public class FreelancerInspectionController {
     }
 
     @GetMapping("")
-    @Operation(summary = "Get list of all freelancer vehicle submissions (Accessible to ALL roles)")
+    @Operation(summary = "Get list of freelancer vehicle submissions (Freelancer ID-wise, or all for admin/marketplace)")
     public ResponseEntity<ApiResponse<List<FreelancerVehicleResponse>>> getMyInspections(
+            @RequestParam(value = "freelancerId", required = false) Long freelancerId,
+            @RequestParam(value = "inspectorId", required = false) Long inspectorId,
+            @RequestParam(value = "all", required = false) Boolean all,
+            @RequestParam(value = "scope", required = false) String scope,
             @AuthenticationPrincipal UserDetails userDetails) {
         
+        // 1. Explicitly requesting all submissions (e.g., admin or dealer marketplace)
+        if (Boolean.TRUE.equals(all) || "all".equalsIgnoreCase(scope)) {
+            List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+            return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                    .success(true)
+                    .message("All freelancer submissions retrieved successfully.")
+                    .data(adminResponse)
+                    .build());
+        }
+
+        // 2. Specific freelancer ID requested
+        Long targetId = freelancerId != null ? freelancerId : inspectorId;
+        if (targetId != null) {
+            Long resolvedId = resolveFreelancerInspectorId(targetId);
+            if (resolvedId != null) {
+                List<FreelancerVehicleResponse> response = inspectionService.getFreelancerSubmissions(resolvedId);
+                return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                        .success(true)
+                        .message("Freelancer submissions retrieved successfully for id: " + targetId)
+                        .data(response)
+                        .build());
+            } else {
+                return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                        .success(true)
+                        .message("No freelancer submissions found.")
+                        .data(Collections.emptyList())
+                        .build());
+            }
+        }
+
+        // 3. Unauthenticated request -> default to public/admin live list
         if (userDetails == null) {
             List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
             return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
@@ -105,17 +147,19 @@ public class FreelancerInspectionController {
                     .build());
         }
 
-        boolean isNonFreelancerRole = userDetails.getAuthorities() != null &&
+        // 4. If caller is strictly ADMIN (has ROLE_ADMIN or ADMIN, and not ROLE_FREELANCER)
+        boolean isAdmin = userDetails.getAuthorities() != null &&
             userDetails.getAuthorities().stream().anyMatch(a -> 
                 a.getAuthority().equalsIgnoreCase("ROLE_ADMIN") || 
-                a.getAuthority().equalsIgnoreCase("ADMIN") ||
-                a.getAuthority().equalsIgnoreCase("ROLE_DEALER") || 
-                a.getAuthority().equalsIgnoreCase("DEALER") ||
-                a.getAuthority().equalsIgnoreCase("ROLE_INSPECTOR") ||
-                a.getAuthority().equalsIgnoreCase("INSPECTOR")
+                a.getAuthority().equalsIgnoreCase("ADMIN")
+            );
+        boolean hasFreelancerRole = userDetails.getAuthorities() != null &&
+            userDetails.getAuthorities().stream().anyMatch(a -> 
+                a.getAuthority().equalsIgnoreCase("ROLE_FREELANCER") || 
+                a.getAuthority().equalsIgnoreCase("FREELANCER")
             );
 
-        if (isNonFreelancerRole) {
+        if (isAdmin && !hasFreelancerRole) {
             List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
             return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
                     .success(true)
@@ -124,6 +168,7 @@ public class FreelancerInspectionController {
                     .build());
         }
 
+        // 5. Authenticated freelancer (individual freelancer OR dealer made as freelancer)
         try {
             Inspector inspector = getFreelancer(userDetails);
             List<FreelancerVehicleResponse> response = inspectionService.getFreelancerSubmissions(inspector.getId());
@@ -133,11 +178,26 @@ public class FreelancerInspectionController {
                     .data(response)
                     .build());
         } catch (Exception e) {
-            List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+            // If user is a pure dealer who was not made freelancer and has no inspector profile,
+            // fallback to public/admin marketplace view so dealer marketplace screen does not crash
+            boolean isDealer = userDetails.getAuthorities() != null &&
+                userDetails.getAuthorities().stream().anyMatch(a -> 
+                    a.getAuthority().equalsIgnoreCase("ROLE_DEALER") || 
+                    a.getAuthority().equalsIgnoreCase("DEALER")
+                );
+            if (isDealer) {
+                List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+                return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
+                        .success(true)
+                        .message("All freelancer submissions retrieved successfully.")
+                        .data(adminResponse)
+                        .build());
+            }
+
             return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
                     .success(true)
-                    .message("All freelancer submissions retrieved successfully.")
-                    .data(adminResponse)
+                    .message("No submissions found.")
+                    .data(Collections.emptyList())
                     .build());
         }
     }
@@ -302,9 +362,108 @@ public class FreelancerInspectionController {
                 .build());
     }
 
+    private Long resolveFreelancerInspectorId(Long targetId) {
+        if (targetId == null) return null;
+
+        // 1. Direct search in inspector table
+        Optional<Inspector> inspectorOpt = inspectorRepository.findById(targetId);
+        if (inspectorOpt.isPresent()) {
+            return inspectorOpt.get().getId();
+        }
+
+        // 2. Check if targetId is a Dealer ID who was made freelancer
+        Optional<Dealer> dealerOpt = dealerRepository.findById(targetId);
+        if (dealerOpt.isPresent()) {
+            Dealer dealer = dealerOpt.get();
+            String email = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
+                    ? dealer.getEmail().trim()
+                    : (dealer.getMobileNumber() + "@caryanam.com");
+            String mobile = dealer.getMobileNumber();
+
+            Optional<Inspector> linked = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
+            if (linked.isPresent()) {
+                return linked.get().getId();
+            }
+            if (dealer.getEmail() != null) {
+                linked = inspectorRepository.findByEmail(dealer.getEmail());
+                if (linked.isPresent()) return linked.get().getId();
+            }
+            if (dealer.getMobileNumber() != null) {
+                linked = inspectorRepository.findByMobileNumber(dealer.getMobileNumber());
+                if (linked.isPresent()) return linked.get().getId();
+            }
+            if (Boolean.TRUE.equals(dealer.getIsFreelancer())) {
+                Inspector newFreelancer = Inspector.builder()
+                        .fullName(dealer.getOwnerName() != null ? dealer.getOwnerName() : dealer.getDealershipName())
+                        .email(email)
+                        .mobileNumber(mobile)
+                        .password(dealer.getPassword())
+                        .role(Role.FREELANCER)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                newFreelancer = inspectorRepository.save(newFreelancer);
+                return newFreelancer.getId();
+            }
+        }
+
+        return targetId;
+    }
+
     private Inspector getFreelancer(UserDetails userDetails) {
-        String email = userDetails.getUsername();
-        return inspectorRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Freelancer account not found for email: " + email));
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResourceNotFoundException("Freelancer account not authenticated");
+        }
+        String identifier = userDetails.getUsername().trim();
+
+        // 1. Search in inspector table by email or mobile number
+        Optional<Inspector> inspector = inspectorRepository.findByEmailOrMobileNumber(identifier, identifier);
+        if (inspector.isPresent() && inspector.get().getRole() == Role.FREELANCER) {
+            return inspector.get();
+        }
+
+        // 2. Search in dealer table (for dealer converted to freelancer)
+        Optional<Dealer> dealerOpt = dealerRepository.findByEmailOrMobileNumber(identifier, identifier);
+        if (dealerOpt.isPresent()) {
+            Dealer dealer = dealerOpt.get();
+            String email = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
+                    ? dealer.getEmail().trim()
+                    : (dealer.getMobileNumber() + "@caryanam.com");
+            String mobile = dealer.getMobileNumber();
+
+            Optional<Inspector> linkedInspector = inspectorRepository.findByEmailOrMobileNumber(email, mobile);
+            if (linkedInspector.isPresent()) {
+                return linkedInspector.get();
+            }
+            if (dealer.getEmail() != null) {
+                linkedInspector = inspectorRepository.findByEmail(dealer.getEmail());
+                if (linkedInspector.isPresent()) return linkedInspector.get();
+            }
+            if (dealer.getMobileNumber() != null) {
+                linkedInspector = inspectorRepository.findByMobileNumber(dealer.getMobileNumber());
+                if (linkedInspector.isPresent()) return linkedInspector.get();
+            }
+
+            // If dealer is marked as freelancer, create inspector record if not yet created
+            if (Boolean.TRUE.equals(dealer.getIsFreelancer())) {
+                Inspector newFreelancer = Inspector.builder()
+                        .fullName(dealer.getOwnerName() != null ? dealer.getOwnerName() : dealer.getDealershipName())
+                        .email(email)
+                        .mobileNumber(mobile)
+                        .password(dealer.getPassword())
+                        .role(Role.FREELANCER)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                return inspectorRepository.save(newFreelancer);
+            }
+        }
+
+        // 3. Fallback search in inspector table
+        if (inspector.isPresent()) {
+            return inspector.get();
+        }
+
+        return inspectorRepository.findByEmail(identifier)
+                .orElseGet(() -> inspectorRepository.findByMobileNumber(identifier)
+                        .orElseThrow(() -> new ResourceNotFoundException("Freelancer account not found for: " + identifier)));
     }
 }

@@ -164,14 +164,28 @@ public class AdminInspectionController {
 
     @PostMapping("/api/admin/dealers/import")
     @Operation(summary = "Import dealers from Excel sheet")
-    public ResponseEntity<ApiResponse<Void>> importDealers(
+    public ResponseEntity<ApiResponse<com.bidding.dto.responce.DealerImportResponseDTO>> importDealers(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         
-        inspectionService.importDealers(file);
+        com.bidding.dto.responce.DealerImportResponseDTO result = inspectionService.importDealers(file);
         
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("Dealers imported successfully.")
+        boolean hasImported = result.getImportedCount() > 0;
+        String message;
+        if (result.getTotalRows() == 0) {
+            message = "No data rows found in the uploaded file.";
+        } else if (hasImported && result.getSkippedCount() == 0) {
+            message = String.format("Successfully imported all %d dealer(s).", result.getImportedCount());
+        } else if (hasImported) {
+            message = String.format("Import completed: %d dealer(s) imported, %d skipped.",
+                    result.getImportedCount(), result.getSkippedCount());
+        } else {
+            message = String.format("No dealers imported. All %d row(s) were skipped.", result.getSkippedCount());
+        }
+
+        return ResponseEntity.ok(ApiResponse.<com.bidding.dto.responce.DealerImportResponseDTO>builder()
+                .success(hasImported || result.getTotalRows() == 0)
+                .message(message)
+                .data(result)
                 .build());
     }
 

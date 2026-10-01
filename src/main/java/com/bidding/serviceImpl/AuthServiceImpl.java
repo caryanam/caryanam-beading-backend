@@ -262,6 +262,41 @@ public class AuthServiceImpl implements AuthService {
                     ? java.util.List.of(Role.DEALER, Role.FREELANCER)
                     : java.util.List.of(Role.DEALER);
 
+            Long freelancerId = null;
+            if (isDual) {
+                freelancerId = inspectorRepository.findByEmailOrMobileNumber(identifier, identifier)
+                        .filter(i -> i.getRole() == Role.FREELANCER)
+                        .map(Inspector::getId)
+                        .orElse(null);
+                if (freelancerId == null && dealer.getEmail() != null) {
+                    freelancerId = inspectorRepository.findByEmail(dealer.getEmail())
+                            .filter(i -> i.getRole() == Role.FREELANCER)
+                            .map(Inspector::getId)
+                            .orElse(null);
+                }
+                if (freelancerId == null && dealer.getMobileNumber() != null) {
+                    freelancerId = inspectorRepository.findByMobileNumber(dealer.getMobileNumber())
+                            .filter(i -> i.getRole() == Role.FREELANCER)
+                            .map(Inspector::getId)
+                            .orElse(null);
+                }
+                if (freelancerId == null) {
+                    String fEmail = (dealer.getEmail() != null && !dealer.getEmail().trim().isEmpty())
+                            ? dealer.getEmail().trim()
+                            : (dealer.getMobileNumber() + "@caryanam.com");
+                    Inspector freelancer = Inspector.builder()
+                            .fullName(dealer.getOwnerName() != null ? dealer.getOwnerName() : dealer.getDealershipName())
+                            .email(fEmail)
+                            .mobileNumber(dealer.getMobileNumber())
+                            .password(dealer.getPassword())
+                            .role(Role.FREELANCER)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    freelancer = inspectorRepository.save(freelancer);
+                    freelancerId = freelancer.getId();
+                }
+            }
+
             return AuthResponse.builder()
                     .id(dealer.getId())
                     .fullName(dealer.getOwnerName())
@@ -272,6 +307,7 @@ public class AuthServiceImpl implements AuthService {
                     .roles(roleList)
                     .hasDualRole(isDual)
                     .token(token)
+                    .freelancerId(freelancerId)
                     .build();
         }
 
@@ -296,6 +332,8 @@ public class AuthServiceImpl implements AuthService {
                     ? java.util.List.of(Role.DEALER, Role.FREELANCER)
                     : java.util.List.of(inspector.getRole());
 
+            Long freelancerId = (inspector.getRole() == Role.FREELANCER) ? inspector.getId() : null;
+
             return AuthResponse.builder()
                     .id(inspector.getId())
                     .fullName(inspector.getFullName())
@@ -305,6 +343,7 @@ public class AuthServiceImpl implements AuthService {
                     .roles(roleList)
                     .hasDualRole(isDual)
                     .token(token)
+                    .freelancerId(freelancerId)
                     .build();
         }
 

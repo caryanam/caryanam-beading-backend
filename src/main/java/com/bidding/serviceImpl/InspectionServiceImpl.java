@@ -693,7 +693,11 @@ public class InspectionServiceImpl implements InspectionService {
 @Override
     @Transactional(readOnly = true)
     public List<FreelancerVehicleResponse> getFreelancerSubmissions(Long inspectorId) {
-        return inspectionRepository.findByInspectorId(inspectorId).stream()
+        List<Inspection> inspections = inspectionRepository.findAllByFreelancerInspectorId(inspectorId);
+        if (inspections == null || inspections.isEmpty()) {
+            inspections = inspectionRepository.findByInspectorId(inspectorId);
+        }
+        return inspections.stream()
                 .map(ins -> {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
@@ -1905,61 +1909,326 @@ public class InspectionServiceImpl implements InspectionService {
 
 
     @Override
-    @Transactional
-    public void importDealers(org.springframework.web.multipart.MultipartFile file) {
-        try (java.io.InputStream is = file.getInputStream();
-             org.apache.poi.ss.usermodel.Workbook workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(is)) {
-            
-            org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheetAt(0);
-            java.util.Iterator<org.apache.poi.ss.usermodel.Row> rows = sheet.iterator();
-            
-            // Skip header row
-            if (rows.hasNext()) {
-                rows.next();
-            }
-            
-            while (rows.hasNext()) {
-                org.apache.poi.ss.usermodel.Row row = rows.next();
-                
-                String ownerName = getCellValueAsString(row.getCell(0));
-                String dealershipName = getCellValueAsString(row.getCell(1));
-                String email = getCellValueAsString(row.getCell(2));
-                String mobile = getCellValueAsString(row.getCell(3));
-                String password = getCellValueAsString(row.getCell(4));
-                String address = getCellValueAsString(row.getCell(5));
-                String area = getCellValueAsString(row.getCell(6));
-                String city = getCellValueAsString(row.getCell(7));
-                
-                if (email == null || email.trim().isEmpty()) {
-                    continue;
-                }
-                
-                if (dealerRepository.existsByEmail(email)) {
-                    continue;
-                }
-                
-                if (mobile != null && !mobile.trim().isEmpty() && dealerRepository.existsByMobileNumber(mobile)) {
-                    continue;
-                }
-                
-                Dealer dealer = Dealer.builder()
-                        .ownerName(ownerName)
-                        .dealershipName(dealershipName)
-                        .email(email)
-                        .mobileNumber(mobile)
-                        .password(passwordEncoder.encode(password != null && !password.trim().isEmpty() ? password : "pass@123"))
-                        .role(com.bidding.enums.Role.DEALER)
-                        .address(address)
-                        .area(area)
-                        .city(city)
-                        .build();
-                        
-                dealerRepository.save(dealer);
-            }
-            
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse Excel file: " + e.getMessage(), e);
+    public com.bidding.dto.responce.DealerImportResponseDTO importDealers(org.springframework.web.multipart.MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Please upload a valid non-empty Excel or CSV file.");
         }
+
+        java.util.List<String> issues = new java.util.ArrayList<>();
+        int totalRows = 0;
+        int importedCount = 0;
+        int skippedCount = 0;
+
+        String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+        boolean isCsv = originalFilename.endsWith(".csv") || "text/csv".equalsIgnoreCase(file.getContentType());
+
+        boolean parsedSuccessfully = false;
+
+        // 1. Try Excel POI if not explicitly a CSV
+        if (!isCsv) {
+            try (java.io.InputStream is = file.getInputStream();
+                 org.apache.poi.ss.usermodel.Workbook workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(is)) {
+
+                org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheetAt(0);
+                if (sheet != null) {
+                    java.util.Iterator<org.apache.poi.ss.usermodel.Row> rows = sheet.iterator();
+                    if (rows.hasNext()) {
+                        org.apache.poi.ss.usermodel.Row headerRow = rows.next();
+                        java.util.Map<String, Integer> headerMap = mapHeaders(headerRow);
+
+                        int rowNum = 1;
+                        while (rows.hasNext()) {
+                            rowNum++;
+                            org.apache.poi.ss.usermodel.Row row = rows.next();
+                            if (isRowEmpty(row)) continue;
+
+                            totalRows++;
+                            try {
+                                String result = processAndSaveDealerRow(row, headerMap, rowNum);
+                                if (result == null) {
+                                    importedCount++;
+                                } else {
+                                    skippedCount++;
+                                    issues.add("Row " + rowNum + ": " + result);
+                                }
+                            } catch (Exception ex) {
+                                skippedCount++;
+                                issues.add("Row " + rowNum + ": Error - " + ex.getMessage());
+                            }
+                        }
+                        parsedSuccessfully = true;
+                    }
+                }
+            } catch (Exception ignored) {
+                // Could be a CSV with .xls/.xlsx extension or non-standard format, fallback to CSV parsing
+                parsedSuccessfully = false;
+            }
+        }
+
+        // 2. Fallback to CSV parser if Excel parsing did not succeed
+        if (!parsedSuccessfully) {
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(file.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+
+                String headerLine = reader.readLine();
+                if (headerLine != null && !headerLine.trim().isEmpty()) {
+                    String delimiter = headerLine.contains("\t") ? "\t" : (headerLine.contains(";") ? ";" : ",");
+                    String[] headers = parseCsvLine(headerLine, delimiter);
+                    java.util.Map<String, Integer> headerMap = mapHeaderStrings(headers);
+
+                    String line;
+                    int rowNum = 1;
+                    while ((line = reader.readLine()) != null) {
+                        rowNum++;
+                        if (line.trim().isEmpty()) continue;
+
+                        totalRows++;
+                        String[] cells = parseCsvLine(line, delimiter);
+                        try {
+                            String result = processAndSaveDealerCsvRow(cells, headerMap, rowNum);
+                            if (result == null) {
+                                importedCount++;
+                            } else {
+                                skippedCount++;
+                                issues.add("Row " + rowNum + ": " + result);
+                            }
+                        } catch (Exception ex) {
+                            skippedCount++;
+                            issues.add("Row " + rowNum + ": Error - " + ex.getMessage());
+                        }
+                    }
+                    parsedSuccessfully = true;
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to read Excel/CSV file: " + e.getMessage(), e);
+            }
+        }
+
+        return com.bidding.dto.responce.DealerImportResponseDTO.builder()
+                .totalRows(totalRows)
+                .importedCount(importedCount)
+                .skippedCount(skippedCount)
+                .issues(issues)
+                .build();
+    }
+
+    private java.util.Map<String, Integer> mapHeaders(org.apache.poi.ss.usermodel.Row headerRow) {
+        java.util.Map<String, Integer> map = new java.util.HashMap<>();
+        if (headerRow == null) return map;
+
+        for (int i = 0; i < headerRow.getLastCellNum(); i++) {
+            org.apache.poi.ss.usermodel.Cell cell = headerRow.getCell(i);
+            String val = getCellValueAsString(cell).trim().toLowerCase();
+            mapHeaderKey(map, val, i);
+        }
+        return map;
+    }
+
+    private java.util.Map<String, Integer> mapHeaderStrings(String[] headers) {
+        java.util.Map<String, Integer> map = new java.util.HashMap<>();
+        if (headers == null) return map;
+
+        for (int i = 0; i < headers.length; i++) {
+            String val = headers[i] != null ? headers[i].trim().toLowerCase() : "";
+            mapHeaderKey(map, val, i);
+        }
+        return map;
+    }
+
+    private void mapHeaderKey(java.util.Map<String, Integer> map, String val, int index) {
+        if (val.isEmpty()) return;
+        if ((val.contains("dealership") || val.contains("company") || val.contains("firm") || val.contains("shop") || val.contains("agency") || val.contains("showroom")) && !map.containsKey("dealershipName")) {
+            map.put("dealershipName", index);
+        } else if ((val.contains("owner") || val.contains("person") || val.contains("contact name") || val.equals("name") || val.equals("dealer name")) && !map.containsKey("ownerName")) {
+            map.put("ownerName", index);
+        } else if ((val.contains("mobile") || val.contains("phone") || val.contains("contact") || val.contains("cell") || val.contains("number")) && !val.contains("vehicle") && !map.containsKey("mobile")) {
+            map.put("mobile", index);
+        } else if ((val.contains("email") || val.contains("mail")) && !map.containsKey("email")) {
+            map.put("email", index);
+        } else if ((val.contains("password") || val.contains("pass") || val.contains("pwd")) && !map.containsKey("password")) {
+            map.put("password", index);
+        } else if ((val.contains("address") || val.contains("street")) && !map.containsKey("address")) {
+            map.put("address", index);
+        } else if ((val.contains("area") || val.contains("locality") || val.contains("zone")) && !map.containsKey("area")) {
+            map.put("area", index);
+        } else if ((val.contains("city") || val.contains("district") || val.contains("town") || val.contains("state")) && !map.containsKey("city")) {
+            map.put("city", index);
+        }
+    }
+
+    private String processAndSaveDealerRow(org.apache.poi.ss.usermodel.Row row, java.util.Map<String, Integer> headerMap, int rowNum) {
+        String ownerName = getMappedValue(row, headerMap, "ownerName", 0);
+        String dealershipName = getMappedValue(row, headerMap, "dealershipName", 1);
+        String email = getMappedValue(row, headerMap, "email", 2);
+        String mobile = getMappedValue(row, headerMap, "mobile", 3);
+        String password = getMappedValue(row, headerMap, "password", 4);
+        String address = getMappedValue(row, headerMap, "address", 5);
+        String area = getMappedValue(row, headerMap, "area", 6);
+        String city = getMappedValue(row, headerMap, "city", 7);
+
+        return validateAndSaveDealer(ownerName, dealershipName, email, mobile, password, address, area, city, rowNum);
+    }
+
+    private String getMappedValue(org.apache.poi.ss.usermodel.Row row, java.util.Map<String, Integer> headerMap, String key, int defaultIndex) {
+        int idx = headerMap.getOrDefault(key, defaultIndex);
+        if (idx >= 0 && idx < row.getLastCellNum()) {
+            return getCellValueAsString(row.getCell(idx));
+        }
+        return "";
+    }
+
+    private String processAndSaveDealerCsvRow(String[] cells, java.util.Map<String, Integer> headerMap, int rowNum) {
+        String ownerName = getCsvMappedValue(cells, headerMap, "ownerName", 0);
+        String dealershipName = getCsvMappedValue(cells, headerMap, "dealershipName", 1);
+        String email = getCsvMappedValue(cells, headerMap, "email", 2);
+        String mobile = getCsvMappedValue(cells, headerMap, "mobile", 3);
+        String password = getCsvMappedValue(cells, headerMap, "password", 4);
+        String address = getCsvMappedValue(cells, headerMap, "address", 5);
+        String area = getCsvMappedValue(cells, headerMap, "area", 6);
+        String city = getCsvMappedValue(cells, headerMap, "city", 7);
+
+        return validateAndSaveDealer(ownerName, dealershipName, email, mobile, password, address, area, city, rowNum);
+    }
+
+    private String getCsvMappedValue(String[] cells, java.util.Map<String, Integer> headerMap, String key, int defaultIndex) {
+        int idx = headerMap.getOrDefault(key, defaultIndex);
+        if (idx >= 0 && idx < cells.length && cells[idx] != null) {
+            return cells[idx].trim().replaceAll("^\"|\"$", "");
+        }
+        return "";
+    }
+
+    private String validateAndSaveDealer(String ownerName, String dealershipName, String email, String mobile,
+                                         String password, String address, String area, String city, int rowNum) {
+        ownerName = ownerName != null ? ownerName.trim() : "";
+        dealershipName = dealershipName != null ? dealershipName.trim() : "";
+        email = email != null ? email.trim() : "";
+        mobile = mobile != null ? mobile.trim() : "";
+        password = password != null ? password.trim() : "";
+        address = address != null ? address.trim() : "";
+        area = area != null ? area.trim() : "";
+        city = city != null ? city.trim() : "";
+
+        // Heuristic: If mobile contains '@' and email does not, swap them!
+        if (mobile.contains("@") && !email.contains("@")) {
+            String temp = mobile;
+            mobile = email;
+            email = temp;
+        }
+
+        // Clean mobile number
+        String cleanMobile = cleanMobileNumber(mobile);
+
+        // If cleanMobile is empty, check if dealershipName or ownerName contains a 10-digit number
+        if (cleanMobile.isEmpty() && isPhoneNumber(dealershipName)) {
+            cleanMobile = cleanMobileNumber(dealershipName);
+            dealershipName = "";
+        }
+        if (cleanMobile.isEmpty() && isPhoneNumber(ownerName)) {
+            cleanMobile = cleanMobileNumber(ownerName);
+            ownerName = "";
+        }
+
+        if (cleanMobile.isEmpty()) {
+            return "Missing mobile number.";
+        }
+
+        if (cleanMobile.length() != 10) {
+            return "Invalid mobile number '" + mobile + "' (must be 10 digits).";
+        }
+
+        // Check if mobile already exists
+        if (dealerRepository.existsByMobileNumber(cleanMobile)) {
+            return "Mobile number " + cleanMobile + " is already registered.";
+        }
+
+        // Check / format email
+        String finalEmail;
+        if (!email.isEmpty() && email.contains("@")) {
+            finalEmail = email.toLowerCase();
+            if (dealerRepository.existsByEmail(finalEmail)) {
+                return "Email '" + finalEmail + "' is already registered.";
+            }
+        } else {
+            // Auto-generate unique fallback email
+            finalEmail = cleanMobile + "@caryanam.com";
+            if (dealerRepository.existsByEmail(finalEmail)) {
+                return "Mobile/Email is already registered (" + finalEmail + ").";
+            }
+        }
+
+        // Handle names
+        if (ownerName.isEmpty() && dealershipName.isEmpty()) {
+            return "Missing owner name and dealership name.";
+        }
+        if (ownerName.isEmpty()) {
+            ownerName = dealershipName;
+        }
+        if (dealershipName.isEmpty()) {
+            dealershipName = ownerName + " Motors";
+        }
+
+        String finalPassword = !password.isEmpty() ? password : "pass@123";
+
+        Dealer dealer = Dealer.builder()
+                .ownerName(ownerName)
+                .dealershipName(dealershipName)
+                .email(finalEmail)
+                .mobileNumber(cleanMobile)
+                .password(passwordEncoder.encode(finalPassword))
+                .role(com.bidding.enums.Role.DEALER)
+                .address(!address.isEmpty() ? address : (!city.isEmpty() ? city : "India"))
+                .area(!area.isEmpty() ? area : city)
+                .city(!city.isEmpty() ? city : "Mumbai")
+                .isFreelancer(false)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        dealerRepository.save(dealer);
+        return null;
+    }
+
+    private boolean isRowEmpty(org.apache.poi.ss.usermodel.Row row) {
+        if (row == null) return true;
+        for (int c = row.getFirstCellNum(); c < row.getLastCellNum(); c++) {
+            org.apache.poi.ss.usermodel.Cell cell = row.getCell(c);
+            if (cell != null && cell.getCellType() != org.apache.poi.ss.usermodel.CellType.BLANK) {
+                String val = getCellValueAsString(cell).trim();
+                if (!val.isEmpty()) return false;
+            }
+        }
+        return true;
+    }
+
+    private String[] parseCsvLine(String line, String delimiter) {
+        if (line == null) return new String[0];
+        return line.split(java.util.regex.Pattern.quote(delimiter), -1);
+    }
+
+    private String cleanMobileNumber(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim();
+        if (s.toUpperCase().contains("E") || s.contains(".")) {
+            try {
+                java.math.BigDecimal bd = new java.math.BigDecimal(s);
+                s = bd.toPlainString();
+            } catch (Exception ignored) {}
+        }
+        String digits = s.replaceAll("[^0-9]", "");
+        if (digits.length() == 11 && digits.startsWith("0")) {
+            digits = digits.substring(1);
+        } else if (digits.length() == 12 && digits.startsWith("91")) {
+            digits = digits.substring(2);
+        } else if (digits.length() > 10) {
+            digits = digits.substring(digits.length() - 10);
+        }
+        return digits;
+    }
+
+    private boolean isPhoneNumber(String val) {
+        if (val == null) return false;
+        String digits = val.replaceAll("[^0-9]", "");
+        return digits.length() >= 10 && digits.length() <= 12;
     }
 
     private String getCellValueAsString(org.apache.poi.ss.usermodel.Cell cell) {
@@ -1968,17 +2237,29 @@ public class InspectionServiceImpl implements InspectionService {
         }
         switch (cell.getCellType()) {
             case STRING:
-                return cell.getStringCellValue();
+                return cell.getStringCellValue().trim();
             case NUMERIC:
                 if (org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
                     return cell.getDateCellValue().toString();
                 }
+                double num = cell.getNumericCellValue();
+                if (num == Math.floor(num) && !Double.isInfinite(num)) {
+                    return String.format("%.0f", num);
+                }
                 java.text.DecimalFormat df = new java.text.DecimalFormat("#");
-                return df.format(cell.getNumericCellValue());
+                return df.format(num);
             case BOOLEAN:
                 return Boolean.toString(cell.getBooleanCellValue());
             case FORMULA:
-                return cell.getCellFormula();
+                try {
+                    return cell.getStringCellValue();
+                } catch (Exception e) {
+                    try {
+                        return String.format("%.0f", cell.getNumericCellValue());
+                    } catch (Exception ex) {
+                        return cell.getCellFormula();
+                    }
+                }
             default:
                 return "";
         }
