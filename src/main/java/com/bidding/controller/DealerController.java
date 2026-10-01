@@ -62,10 +62,9 @@ public class DealerController {
 
     @GetMapping("/inspections")
     @Operation(summary = "Get list of all approved inspections for dealer marketplace")
-    public ResponseEntity<ApiResponse<List<InspectionSummaryResponse>>> getMarketplaceInspections() {
-        List<InspectionSummaryResponse> approvedInspections = inspectionService.getAllInspections().stream()
-                .filter(ins -> ins.getStatus() == InspectionStatus.APPROVED)
-                .collect(Collectors.toList());
+    public ResponseEntity<ApiResponse<List<InspectionSummaryResponse>>> getMarketplaceInspections(Principal principal) {
+        String username = principal != null ? principal.getName() : null;
+        List<InspectionSummaryResponse> approvedInspections = inspectionService.getAllMarketplaceInspectionsForDealer(username);
 
         return ResponseEntity.ok(ApiResponse.<List<InspectionSummaryResponse>>builder()
                 .success(true)

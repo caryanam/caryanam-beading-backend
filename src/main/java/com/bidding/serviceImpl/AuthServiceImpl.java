@@ -23,6 +23,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -290,7 +292,7 @@ public class AuthServiceImpl implements AuthService {
                             .mobileNumber(dealer.getMobileNumber())
                             .password(dealer.getPassword())
                             .role(Role.FREELANCER)
-                            .createdAt(LocalDateTime.now())
+                            .createdAt(java.time.LocalDateTime.now())
                             .build();
                     freelancer = inspectorRepository.save(freelancer);
                     freelancerId = freelancer.getId();

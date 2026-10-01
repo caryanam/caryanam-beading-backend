@@ -34,6 +34,8 @@ public class InspectionSummaryResponse {
     private String vehicleStatus;
     private Double currentHighestBid;
     private String currentHighestBidder;
+    private Long currentHighestBidderId;
+    private Boolean isFreelancer;
     private Long auctionEndTime;
     private Integer totalBids;
     private Boolean sellerAgreed;

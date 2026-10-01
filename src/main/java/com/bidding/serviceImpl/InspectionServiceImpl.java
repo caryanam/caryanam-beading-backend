@@ -138,6 +138,7 @@ public class InspectionServiceImpl implements InspectionService {
         return null;
     }
 
+    @Override
     public Long resolveCurrentHighestBidderId(Vehicle v, Long inspectionId) {
         if (v == null) {
             return null;
@@ -154,6 +155,7 @@ public class InspectionServiceImpl implements InspectionService {
         return null;
     }
 
+    @Override
     public String resolveCurrentHighestBidderEmail(Vehicle v, Long inspectionId) {
         if (v == null) {
             return null;
@@ -831,6 +833,262 @@ public class InspectionServiceImpl implements InspectionService {
                             .submittedAt(ins.getSubmittedAt())
                             .freelancerName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Freelancer"))
                             .inspectorName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Freelancer"))
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InspectionSummaryResponse> getAllMarketplaceInspectionsForDealer(String dealerUsernameOrEmail) {
+        Dealer dealer = null;
+        if (dealerUsernameOrEmail != null && !dealerUsernameOrEmail.trim().isEmpty()) {
+            dealer = dealerRepository.findByEmailOrMobileNumber(dealerUsernameOrEmail, dealerUsernameOrEmail).orElse(null);
+        }
+        final Long currentDealerId = (dealer != null) ? dealer.getId() : null;
+        final String currentDealerEmail = (dealer != null && dealer.getEmail() != null) ? dealer.getEmail().trim().toLowerCase() : null;
+        final LocalDateTime now = LocalDateTime.now();
+
+        return inspectionRepository.findAll().stream()
+                .filter(ins -> ins.getStatus() == InspectionStatus.APPROVED)
+                .filter(ins -> {
+                    Vehicle v = ins.getVehicle();
+                    if (v == null) {
+                        return false;
+                    }
+
+                    // Check if auction has ended or vehicle is sold out
+                    String vStatus = v.getVehicleStatus() != null ? v.getVehicleStatus().trim().toUpperCase() : "";
+                    boolean statusEndedOrSold = vStatus.equals("SOLD") ||
+                                                vStatus.equals("SOLD OUT") ||
+                                                vStatus.equals("SOLD_OUT") ||
+                                                vStatus.equals("ENDED") ||
+                                                vStatus.equals("AUCTION ENDED") ||
+                                                vStatus.equals("AUCTION_ENDED") ||
+                                                vStatus.equals("COMPLETED");
+
+                    boolean timeEnded = false;
+                    if (v.getAuctionEndTime() != null) {
+                        timeEnded = !v.getAuctionEndTime().isAfter(now);
+                    }
+
+                    boolean isEndedOrSold = statusEndedOrSold || timeEnded;
+
+                    // If auction ended or vehicle is sold out:
+                    // DO NOT display to anyone, ONLY display to the dealer who won the auction!
+                    if (isEndedOrSold) {
+                        if (currentDealerId == null && currentDealerEmail == null) {
+                            return false;
+                        }
+                        Long winningDealerId = resolveCurrentHighestBidderId(v, ins.getId());
+                        String winningDealerEmail = resolveCurrentHighestBidderEmail(v, ins.getId());
+
+                        boolean isWinner = false;
+                        if (winningDealerId != null && currentDealerId != null && winningDealerId.equals(currentDealerId)) {
+                            isWinner = true;
+                        } else if (winningDealerEmail != null && currentDealerEmail != null &&
+                                   winningDealerEmail.trim().equalsIgnoreCase(currentDealerEmail)) {
+                            isWinner = true;
+                        }
+
+                        // Only allow the winner to see this vehicle!
+                        return isWinner;
+                    }
+
+                    // Active live or upcoming/scheduled auction -> display to all dealers
+                    return true;
+                })
+                .map(ins -> {
+                    Vehicle v = ins.getVehicle();
+                    List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
+                    String imgUrl = null;
+                    if (images != null && !images.isEmpty()) {
+                        for (InspectionImage img : images) {
+                            if (!isVideoImage(img)) {
+                                imgUrl = buildFullImageUrl(img.getImageUrl());
+                                break;
+                            }
+                        }
+                        if (imgUrl == null) {
+                            imgUrl = buildFullImageUrl(images.get(0).getImageUrl());
+                        }
+                    }
+
+                    boolean isFreelancer = (ins.getInspector() != null && ins.getInspector().getRole() == com.bidding.enums.Role.FREELANCER)
+                            || (ins.getSubmittedBy() != null && ins.getSubmittedBy().getRole() == com.bidding.enums.Role.FREELANCER);
+
+                    String inspectorName = (ins.getInspector() != null && ins.getInspector().getFullName() != null)
+                            ? ins.getInspector().getFullName()
+                            : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : (isFreelancer ? "Freelancer Submitter" : "Certified Inspector"));
+
+                    return InspectionSummaryResponse.builder()
+                            .inspectionId(ins.getId())
+                            .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
+                            .ownerName(v != null ? v.getOwnerName() : "N/A")
+                            .customerMobileNumber(v != null ? v.getCustomerMobileNumber() : null)
+                            .brand(v != null ? v.getBrand() : "N/A")
+                            .model(v != null ? v.getModel() : "N/A")
+                            .variant(v != null ? v.getVariant() : "N/A")
+                            .status(ins.getStatus())
+                            .submittedAt(ins.getSubmittedAt())
+                            .inspectorName(inspectorName)
+                            .freelancerName(isFreelancer ? inspectorName : null)
+                            .isFreelancer(isFreelancer)
+                            .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .rejectionReason(ins.getRejectionReason())
+                            .vehicleImage(imgUrl)
+                            .year(v != null ? (v.getRegistrationYear() != null ? v.getRegistrationYear() : v.getManufacturingYear()) : null)
+                            .manufacturingYear(v != null ? v.getManufacturingYear() : null)
+                            .registrationYear(v != null ? v.getRegistrationYear() : null)
+                            .fuel(v != null ? v.getFuelType() : "N/A")
+                            .transmission(v != null ? v.getTransmission() : "N/A")
+                            .odometer(v != null ? v.getOdometerReading() : null)
+                            .vehicleStatus(v != null ? v.getVehicleStatus() : null)
+                            .currentHighestBid(resolveCurrentHighestBid(v, ins.getId()))
+                            .currentHighestBidder(resolveCurrentHighestBidder(v, ins.getId()))
+                            .currentHighestBidderId(resolveCurrentHighestBidderId(v, ins.getId()))
+                            .auctionEndTime((v != null && v.getAuctionEndTime() != null) ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
+                            .totalBids(v != null ? v.getTotalBids() : null)
+                            .sellerAgreed(v != null ? v.getSellerAgreed() : null)
+                            .sellerCounterPrice(v != null ? v.getSellerCounterPrice() : null)
+                            .sellerMessage(v != null ? v.getSellerMessage() : null)
+                            .adminDealerMessage(v != null ? v.getAdminDealerMessage() : null)
+                            .dealerReplyMessage(v != null ? v.getDealerReplyMessage() : null)
+                            .location(v != null ? v.getLocation() : null)
+                            .rtoInformation(v != null ? v.getRtoInformation() : null)
+                            .rsAvailability(v != null ? v.getRsAvailability() : null)
+                            .duplicateKey(v != null ? v.getDuplicateKey() : null)
+                            .rtoNocIssued(v != null ? v.getRtoNocIssued() : null)
+                            .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .accidental(v != null ? v.getAccidental() : null)
+                            .mismatchInRc(v != null ? v.getMismatchInRc() : null)
+                            .roadTaxPaid(v != null ? v.getRoadTaxPaid() : null)
+                            .fitnessUpto(v != null ? v.getFitnessUpto() : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FreelancerVehicleResponse> getAllFreelancerSubmissionsForDealer(String dealerUsernameOrEmail) {
+        Dealer dealer = null;
+        if (dealerUsernameOrEmail != null && !dealerUsernameOrEmail.trim().isEmpty()) {
+            dealer = dealerRepository.findByEmailOrMobileNumber(dealerUsernameOrEmail, dealerUsernameOrEmail).orElse(null);
+        }
+        final Long currentDealerId = (dealer != null) ? dealer.getId() : null;
+        final String currentDealerEmail = (dealer != null && dealer.getEmail() != null) ? dealer.getEmail().trim().toLowerCase() : null;
+        final LocalDateTime now = LocalDateTime.now();
+
+        return inspectionRepository.findAll().stream()
+                .filter(ins -> ins.getStatus() == InspectionStatus.APPROVED)
+                .filter(ins -> (ins.getInspector() != null && ins.getInspector().getRole() == com.bidding.enums.Role.FREELANCER)
+                        || (ins.getSubmittedBy() != null && ins.getSubmittedBy().getRole() == com.bidding.enums.Role.FREELANCER))
+                .filter(ins -> {
+                    Vehicle v = ins.getVehicle();
+                    if (v == null) {
+                        return false;
+                    }
+
+                    String vStatus = v.getVehicleStatus() != null ? v.getVehicleStatus().trim().toUpperCase() : "";
+                    boolean statusEndedOrSold = vStatus.equals("SOLD") ||
+                                                vStatus.equals("SOLD OUT") ||
+                                                vStatus.equals("SOLD_OUT") ||
+                                                vStatus.equals("ENDED") ||
+                                                vStatus.equals("AUCTION ENDED") ||
+                                                vStatus.equals("AUCTION_ENDED") ||
+                                                vStatus.equals("COMPLETED");
+
+                    boolean timeEnded = false;
+                    if (v.getAuctionEndTime() != null) {
+                        timeEnded = !v.getAuctionEndTime().isAfter(now);
+                    }
+
+                    boolean isEndedOrSold = statusEndedOrSold || timeEnded;
+
+                    if (isEndedOrSold) {
+                        if (currentDealerId == null && currentDealerEmail == null) {
+                            return false;
+                        }
+                        Long winningDealerId = resolveCurrentHighestBidderId(v, ins.getId());
+                        String winningDealerEmail = resolveCurrentHighestBidderEmail(v, ins.getId());
+
+                        boolean isWinner = false;
+                        if (winningDealerId != null && currentDealerId != null && winningDealerId.equals(currentDealerId)) {
+                            isWinner = true;
+                        } else if (winningDealerEmail != null && currentDealerEmail != null &&
+                                   winningDealerEmail.trim().equalsIgnoreCase(currentDealerEmail)) {
+                            isWinner = true;
+                        }
+
+                        return isWinner;
+                    }
+
+                    return true;
+                })
+                .map(ins -> {
+                    Vehicle v = ins.getVehicle();
+                    List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
+
+                    String videoUrl = null;
+                    List<String> photoUrls = new ArrayList<>();
+                    if (images != null) {
+                        for (InspectionImage img : images) {
+                            String fullUrl = buildFullImageUrl(img.getImageUrl());
+                            if (isVideoImage(img)) {
+                                if (videoUrl == null) {
+                                    videoUrl = fullUrl;
+                                }
+                            } else {
+                                photoUrls.add(fullUrl);
+                            }
+                        }
+                    }
+                    String firstImgUrl = !photoUrls.isEmpty() ? photoUrls.get(0) : (videoUrl != null ? videoUrl : null);
+
+                    return FreelancerVehicleResponse.builder()
+                            .id(ins.getId())
+                            .inspectionId(ins.getId())
+                            .registrationNumber(v != null ? v.getVehicleNumber() : null)
+                            .vehicleNumber(v != null ? v.getVehicleNumber() : null)
+                            .customerName(v != null ? v.getCustomerName() : null)
+                            .customerMobileNumber(v != null ? v.getCustomerMobileNumber() : null)
+                            .brand(v != null ? v.getBrand() : null)
+                            .model(v != null ? v.getModel() : null)
+                            .variant(v != null ? v.getVariant() : null)
+                            .manufacturingYear(v != null ? v.getManufacturingYear() : null)
+                            .registrationYear(v != null ? v.getRegistrationYear() : null)
+                            .fuelType(v != null ? v.getFuelType() : null)
+                            .transmission(v != null ? v.getTransmission() : null)
+                            .odometerReading(v != null ? v.getOdometerReading() : null)
+                            .ownerName(v != null ? v.getOwnerName() : null)
+                            .insuranceStatus(v != null ? v.getInsuranceStatus() : null)
+                            .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .location(v != null ? v.getLocation() : null)
+                            .underHypothecation(v != null ? v.getUnderHypothecation() : null)
+                            .accidental(v != null ? v.getAccidental() : null)
+                            .rtoInformation(v != null ? v.getRtoInformation() : null)
+                            .status(ins.getStatus())
+                            .vehicleStatus(v != null ? v.getVehicleStatus() : null)
+                            .currentHighestBid(resolveCurrentHighestBid(v, ins.getId()))
+                            .currentHighestBidder(resolveCurrentHighestBidder(v, ins.getId()))
+                            .currentHighestBidderId(resolveCurrentHighestBidderId(v, ins.getId()))
+                            .isFreelancer(true)
+                            .auctionEndTime((v != null && v.getAuctionEndTime() != null) ? v.getAuctionEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() : null)
+                            .totalBids(v != null ? v.getTotalBids() : null)
+                            .sellerAgreed(v != null ? v.getSellerAgreed() : null)
+                            .sellerCounterPrice(v != null ? v.getSellerCounterPrice() : null)
+                            .sellerMessage(v != null ? v.getSellerMessage() : null)
+                            .adminDealerMessage(v != null ? v.getAdminDealerMessage() : null)
+                            .dealerReplyMessage(v != null ? v.getDealerReplyMessage() : null)
+                            .rejectionReason(ins.getRejectionReason())
+                            .vehicleImage(firstImgUrl)
+                            .photos(photoUrls)
+                            .videoUrl(videoUrl)
+                            .createdAt(ins.getCreatedAt())
+                            .submittedAt(ins.getSubmittedAt())
+                            .freelancerName(ins.getInspector() != null ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Freelancer"))
+                            .inspectorName(ins.getInspector() != null ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Freelancer"))
                             .build();
                 })
                 .collect(Collectors.toList());

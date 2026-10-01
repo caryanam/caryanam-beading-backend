@@ -77,4 +77,12 @@ public interface InspectionService {
     Double resolveCurrentHighestBid(com.bidding.entity.Vehicle v, Long inspectionId);
 
     String resolveCurrentHighestBidder(com.bidding.entity.Vehicle v, Long inspectionId);
+
+    Long resolveCurrentHighestBidderId(com.bidding.entity.Vehicle v, Long inspectionId);
+
+    String resolveCurrentHighestBidderEmail(com.bidding.entity.Vehicle v, Long inspectionId);
+
+    List<InspectionSummaryResponse> getAllMarketplaceInspectionsForDealer(String dealerUsernameOrEmail);
+
+    List<FreelancerVehicleResponse> getAllFreelancerSubmissionsForDealer(String dealerUsernameOrEmail);
 }

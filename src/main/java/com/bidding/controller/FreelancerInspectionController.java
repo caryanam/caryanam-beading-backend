@@ -109,11 +109,22 @@ public class FreelancerInspectionController {
         
         // 1. Explicitly requesting all submissions (e.g., admin or dealer marketplace)
         if (Boolean.TRUE.equals(all) || "all".equalsIgnoreCase(scope)) {
-            List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+            boolean isAdmin = userDetails != null && userDetails.getAuthorities() != null &&
+                userDetails.getAuthorities().stream().anyMatch(a -> 
+                    a.getAuthority().equalsIgnoreCase("ROLE_ADMIN") || 
+                    a.getAuthority().equalsIgnoreCase("ADMIN")
+                );
+            List<FreelancerVehicleResponse> listResponse;
+            if (isAdmin) {
+                listResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+            } else {
+                String username = userDetails != null ? userDetails.getUsername() : null;
+                listResponse = inspectionService.getAllFreelancerSubmissionsForDealer(username);
+            }
             return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
                     .success(true)
                     .message("All freelancer submissions retrieved successfully.")
-                    .data(adminResponse)
+                    .data(listResponse)
                     .build());
         }
 
@@ -186,11 +197,11 @@ public class FreelancerInspectionController {
                     a.getAuthority().equalsIgnoreCase("DEALER")
                 );
             if (isDealer) {
-                List<FreelancerVehicleResponse> adminResponse = inspectionService.getAllFreelancerSubmissionsForAdmin();
+                List<FreelancerVehicleResponse> dealerResponse = inspectionService.getAllFreelancerSubmissionsForDealer(userDetails.getUsername());
                 return ResponseEntity.ok(ApiResponse.<List<FreelancerVehicleResponse>>builder()
                         .success(true)
                         .message("All freelancer submissions retrieved successfully.")
-                        .data(adminResponse)
+                        .data(dealerResponse)
                         .build());
             }
 
