@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 @Builder
 public class InspectionSummaryResponse {
 
+    private Long id;
+    private Long vehicleId;
     private Long inspectionId;
     private String vehicleNumber;
     private String ownerName;

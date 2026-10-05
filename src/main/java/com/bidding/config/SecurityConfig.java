@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/inspector/**", "/inspector/**").hasAnyRole("INSPECTOR", "ADMIN")
                         .requestMatchers("/api/freelancer/inspection/**", "/api/freelancer/vehicles/**", "/api/freelancer/inspection", "/api/freelancer/**", "/freelancer/**").permitAll()
                         .requestMatchers("/api/dealer/**", "/dealer/**").hasAnyRole("DEALER", "ADMIN")
+                        .requestMatchers("/api/vehicles/**", "/api/vehicles").hasAnyRole("ADMIN", "INSPECTOR", "FREELANCER", "DEALER")
 
                         // No unlisted endpoint is public
                         .anyRequest().authenticated())

@@ -15,6 +15,7 @@ import java.util.List;
 public class FreelancerVehicleResponse {
 
     private Long id;
+    private Long vehicleId;
     private Long inspectionId;
     private String registrationNumber;
     private String vehicleNumber;

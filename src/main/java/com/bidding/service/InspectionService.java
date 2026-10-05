@@ -42,6 +42,10 @@ public interface InspectionService {
 
     void deleteInspection(Long id);
 
+    void deleteVehicle(Long vehicleId);
+
+    InspectionDetailsResponse getVehicleDetailsByVehicleId(Long vehicleId);
+
     InspectorStatsResponse getInspectorStats(Long inspectorId);
 
     List<InspectorResponseDTO> getAllInspectors();

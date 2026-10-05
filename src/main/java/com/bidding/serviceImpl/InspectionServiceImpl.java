@@ -45,6 +45,8 @@ public class InspectionServiceImpl implements InspectionService {
     private final DealerRepository dealerRepository;
     private final BidRepository bidRepository;
     private final WishlistRepository wishlistRepository;
+    private final AuctionMessageRepository auctionMessageRepository;
+    private final NotificationRepository notificationRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuctionWebSocketHandler webSocketHandler;
     private final com.bidding.service.NotificationService notificationService;
@@ -611,7 +613,10 @@ public class InspectionServiceImpl implements InspectionService {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
                     String imgUrl = (images != null && !images.isEmpty()) ? buildFullImageUrl(images.get(0).getImageUrl()) : null;
+                    Long vId = v != null ? v.getId() : null;
                     return InspectionSummaryResponse.builder()
+                            .id(vId != null ? vId : ins.getId())
+                            .vehicleId(vId)
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
                             .ownerName(v != null ? v.getOwnerName() : "N/A")
@@ -665,7 +670,10 @@ public class InspectionServiceImpl implements InspectionService {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
                     String imgUrl = (images != null && !images.isEmpty()) ? buildFullImageUrl(images.get(0).getImageUrl()) : null;
+                    Long vId = v != null ? v.getId() : null;
                     return InspectionSummaryResponse.builder()
+                            .id(vId != null ? vId : ins.getId())
+                            .vehicleId(vId)
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
                             .ownerName(v != null ? v.getOwnerName() : "N/A")
@@ -731,9 +739,11 @@ public class InspectionServiceImpl implements InspectionService {
                         }
                     }
                     String firstImgUrl = !photoUrls.isEmpty() ? photoUrls.get(0) : (videoUrl != null ? videoUrl : null);
+                    Long vId = v != null ? v.getId() : null;
 
                     return FreelancerVehicleResponse.builder()
-                            .id(ins.getId())
+                            .id(vId != null ? vId : ins.getId())
+                            .vehicleId(vId)
                             .inspectionId(ins.getId())
                             .registrationNumber(v != null ? v.getVehicleNumber() : null)
                             .vehicleNumber(v != null ? v.getVehicleNumber() : null)
@@ -851,9 +861,11 @@ public class InspectionServiceImpl implements InspectionService {
                         }
                     }
                     String firstImgUrl = !photoUrls.isEmpty() ? photoUrls.get(0) : (videoUrl != null ? videoUrl : null);
+                    Long vId = v != null ? v.getId() : null;
 
                     return FreelancerVehicleResponse.builder()
-                            .id(ins.getId())
+                            .id(vId != null ? vId : ins.getId())
+                            .vehicleId(vId)
                             .inspectionId(ins.getId())
                             .registrationNumber(v != null ? v.getVehicleNumber() : null)
                             .vehicleNumber(v != null ? v.getVehicleNumber() : null)
@@ -988,7 +1000,11 @@ public class InspectionServiceImpl implements InspectionService {
                             ? ins.getInspector().getFullName()
                             : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : (isFreelancer ? "Freelancer Submitter" : "Certified Inspector"));
 
+                    Long vId = v != null ? v.getId() : null;
+
                     return InspectionSummaryResponse.builder()
+                            .id(vId != null ? vId : ins.getId())
+                            .vehicleId(vId)
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
                             .ownerName(v != null ? v.getOwnerName() : "N/A")
@@ -1111,9 +1127,11 @@ public class InspectionServiceImpl implements InspectionService {
                         }
                     }
                     String firstImgUrl = !photoUrls.isEmpty() ? photoUrls.get(0) : (videoUrl != null ? videoUrl : null);
+                    Long vId = v != null ? v.getId() : null;
 
                     return FreelancerVehicleResponse.builder()
-                            .id(ins.getId())
+                            .id(vId != null ? vId : ins.getId())
+                            .vehicleId(vId)
                             .inspectionId(ins.getId())
                             .registrationNumber(v != null ? v.getVehicleNumber() : null)
                             .vehicleNumber(v != null ? v.getVehicleNumber() : null)
@@ -1629,14 +1647,123 @@ public class InspectionServiceImpl implements InspectionService {
         interiorInspectionRepository.deleteByInspectionId(id);
         inspectionRemarksRepository.deleteByInspectionId(id);
         inspectionImageRepository.deleteByInspectionId(id);
+        bidRepository.deleteByInspectionId(id);
+        wishlistRepository.deleteByInspectionId(id);
+        auctionMessageRepository.deleteByInspectionId(id);
+        notificationRepository.deleteByInspectionId(id);
 
         // Delete inspection itself by ID
         inspectionRepository.deleteById(id);
+        inspectionRepository.flush();
 
         // Delete vehicle by ID if attached
         if (vehicleId != null) {
             vehicleRepository.deleteById(vehicleId);
+            vehicleRepository.flush();
         }
+    }
+
+    @Override
+    @Transactional
+    public void deleteVehicle(Long vehicleId) {
+        if (vehicleId == null) {
+            throw new ResourceNotFoundException("Vehicle ID cannot be null");
+        }
+
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found"));
+
+        // Find associated inspection if any
+        Optional<Inspection> inspectionOpt = inspectionRepository.findByVehicleId(vehicleId);
+
+        if (inspectionOpt.isPresent()) {
+            Inspection inspection = inspectionOpt.get();
+            Long inspectionId = inspection.getId();
+
+            // 1. Delete associated physical image/video files from disk
+            List<InspectionImage> images = inspectionImageRepository.findByInspectionId(inspectionId);
+            if (images != null) {
+                for (InspectionImage img : images) {
+                    String url = img.getImageUrl();
+                    if (url != null && url.contains("/image/")) {
+                        String filename = url.substring(url.lastIndexOf("/image/") + 7);
+                        try {
+                            java.nio.file.Path filePath = java.nio.file.Paths.get("uploads/inspections/").resolve(filename);
+                            java.nio.file.Files.deleteIfExists(filePath);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+
+            // 2. Delete dependent database records referencing inspectionId
+            inspectionPanelRepository.deleteByInspectionId(inspectionId);
+            mechanicalInspectionRepository.deleteByInspectionId(inspectionId);
+            tyreInspectionRepository.deleteByInspectionId(inspectionId);
+            interiorInspectionRepository.deleteByInspectionId(inspectionId);
+            inspectionRemarksRepository.deleteByInspectionId(inspectionId);
+            inspectionImageRepository.deleteByInspectionId(inspectionId);
+            bidRepository.deleteByInspectionId(inspectionId);
+            wishlistRepository.deleteByInspectionId(inspectionId);
+            auctionMessageRepository.deleteByInspectionId(inspectionId);
+            notificationRepository.deleteByInspectionId(inspectionId);
+
+            // 3. Delete inspection record
+            inspectionRepository.delete(inspection);
+            inspectionRepository.flush();
+        }
+
+        // 4. Delete vehicle permanently from database
+        vehicleRepository.delete(vehicle);
+        vehicleRepository.flush();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InspectionDetailsResponse getVehicleDetailsByVehicleId(Long vehicleId) {
+        if (vehicleId == null) {
+            throw new ResourceNotFoundException("Vehicle ID cannot be null");
+        }
+
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + vehicleId));
+
+        Optional<Inspection> inspectionOpt = inspectionRepository.findByVehicleId(vehicleId);
+        if (inspectionOpt.isPresent()) {
+            return getInspection(inspectionOpt.get().getId());
+        }
+
+        return InspectionDetailsResponse.builder()
+                .vehicleDetails(InspectionDetailsResponse.VehicleResponseDTO.builder()
+                        .id(vehicle.getId())
+                        .vehicleNumber(vehicle.getVehicleNumber())
+                        .ownerName(vehicle.getOwnerName())
+                        .customerName(vehicle.getCustomerName())
+                        .customerMobileNumber(vehicle.getCustomerMobileNumber())
+                        .brand(vehicle.getBrand())
+                        .model(vehicle.getModel())
+                        .variant(vehicle.getVariant())
+                        .manufacturingYear(vehicle.getManufacturingYear())
+                        .registrationYear(vehicle.getRegistrationYear())
+                        .fuelType(vehicle.getFuelType())
+                        .transmission(vehicle.getTransmission())
+                        .odometerReading(vehicle.getOdometerReading())
+                        .insuranceStatus(vehicle.getInsuranceStatus())
+                        .inspectorCode(vehicle.getInspectorCode())
+                        .inspectionDate(vehicle.getInspectionDate())
+                        .vehicleStatus(vehicle.getVehicleStatus())
+                        .suggestedPrice(vehicle.getSuggestedPrice())
+                        .location(vehicle.getLocation())
+                        .rtoInformation(vehicle.getRtoInformation())
+                        .rsAvailability(vehicle.getRsAvailability())
+                        .duplicateKey(vehicle.getDuplicateKey())
+                        .rtoNocIssued(vehicle.getRtoNocIssued())
+                        .underHypothecation(vehicle.getUnderHypothecation())
+                        .accidental(vehicle.getAccidental())
+                        .mismatchInRc(vehicle.getMismatchInRc())
+                        .roadTaxPaid(vehicle.getRoadTaxPaid())
+                        .fitnessUpto(vehicle.getFitnessUpto())
+                        .build())
+                .build();
     }
 
     @Override
