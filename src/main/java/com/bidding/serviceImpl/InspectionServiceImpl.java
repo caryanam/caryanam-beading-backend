@@ -240,6 +240,7 @@ public class InspectionServiceImpl implements InspectionService {
             if (vDto.getInspectorCode() != null) vehicle.setInspectorCode(vDto.getInspectorCode());
             if (vDto.getInspectionDate() != null) vehicle.setInspectionDate(vDto.getInspectionDate());
             if (vDto.getSuggestedPrice() != null) vehicle.setSuggestedPrice(vDto.getSuggestedPrice());
+            if (vDto.getRefurbishedCost() != null) vehicle.setRefurbishedCost(vDto.getRefurbishedCost());
             if (vDto.getLocation() != null) vehicle.setLocation(vDto.getLocation());
             if (vDto.getRtoInformation() != null) vehicle.setRtoInformation(vDto.getRtoInformation());
             if (vDto.getRsAvailability() != null) vehicle.setRsAvailability(vDto.getRsAvailability());
@@ -629,6 +630,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .inspectorName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
 .freelancerName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .refurbishedCost(v != null ? v.getRefurbishedCost() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
                             .year(v != null ? (v.getRegistrationYear() != null ? v.getRegistrationYear() : v.getManufacturingYear()) : null)
@@ -686,6 +688,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .inspectorName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
 .freelancerName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Inspector"))
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .refurbishedCost(v != null ? v.getRefurbishedCost() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
                             .year(v != null ? (v.getRegistrationYear() != null ? v.getRegistrationYear() : v.getManufacturingYear()) : null)
@@ -760,6 +763,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .ownerName(v != null ? v.getOwnerName() : null)
                             .insuranceStatus(v != null ? v.getInsuranceStatus() : null)
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .refurbishedCost(v != null ? v.getRefurbishedCost() : null)
                             .location(v != null ? v.getLocation() : null)
                             .underHypothecation(v != null ? v.getUnderHypothecation() : null)
                             .accidental(v != null ? v.getAccidental() : null)
@@ -882,6 +886,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .ownerName(v != null ? v.getOwnerName() : null)
                             .insuranceStatus(v != null ? v.getInsuranceStatus() : null)
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .refurbishedCost(v != null ? v.getRefurbishedCost() : null)
                             .location(v != null ? v.getLocation() : null)
                             .underHypothecation(v != null ? v.getUnderHypothecation() : null)
                             .accidental(v != null ? v.getAccidental() : null)
@@ -1018,6 +1023,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .freelancerName(isFreelancer ? inspectorName : null)
                             .isFreelancer(isFreelancer)
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .refurbishedCost(v != null ? v.getRefurbishedCost() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
                             .year(v != null ? (v.getRegistrationYear() != null ? v.getRegistrationYear() : v.getManufacturingYear()) : null)
@@ -1148,6 +1154,7 @@ public class InspectionServiceImpl implements InspectionService {
                             .ownerName(v != null ? v.getOwnerName() : null)
                             .insuranceStatus(v != null ? v.getInsuranceStatus() : null)
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .refurbishedCost(v != null ? v.getRefurbishedCost() : null)
                             .location(v != null ? v.getLocation() : null)
                             .underHypothecation(v != null ? v.getUnderHypothecation() : null)
                             .accidental(v != null ? v.getAccidental() : null)
@@ -1481,6 +1488,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .inspectionDate(v.getInspectionDate())
                         .vehicleStatus(v.getVehicleStatus())
                         .suggestedPrice(v.getSuggestedPrice())
+                        .refurbishedCost(v.getRefurbishedCost())
                         .location(v.getLocation())
                         .rtoInformation(v.getRtoInformation())
                         .rsAvailability(v.getRsAvailability())
@@ -1752,6 +1760,7 @@ public class InspectionServiceImpl implements InspectionService {
                         .inspectionDate(vehicle.getInspectionDate())
                         .vehicleStatus(vehicle.getVehicleStatus())
                         .suggestedPrice(vehicle.getSuggestedPrice())
+                        .refurbishedCost(vehicle.getRefurbishedCost())
                         .location(vehicle.getLocation())
                         .rtoInformation(vehicle.getRtoInformation())
                         .rsAvailability(vehicle.getRsAvailability())

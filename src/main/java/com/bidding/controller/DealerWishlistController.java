@@ -65,7 +65,10 @@ public class DealerWishlistController {
                     Vehicle v = ins.getVehicle();
                     List<InspectionImage> images = inspectionImageRepository.findByInspectionId(ins.getId());
                     String imgUrl = (images != null && !images.isEmpty()) ? buildFullImageUrl(images.get(0).getImageUrl()) : null;
+                    Long vId = v != null ? v.getId() : null;
                     return InspectionSummaryResponse.builder()
+                            .id(vId != null ? vId : ins.getId())
+                            .vehicleId(vId)
                             .inspectionId(ins.getId())
                             .vehicleNumber(v != null ? v.getVehicleNumber() : "N/A")
                             .ownerName(v != null ? v.getOwnerName() : "N/A")
@@ -78,6 +81,7 @@ public class DealerWishlistController {
                             .inspectorName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Certified Inspector"))
                             .freelancerName((ins.getInspector() != null && ins.getInspector().getFullName() != null) ? ins.getInspector().getFullName() : (ins.getSubmittedBy() != null ? ins.getSubmittedBy().getFullName() : "Certified Inspector"))
                             .suggestedPrice(v != null ? v.getSuggestedPrice() : null)
+                            .refurbishedCost(v != null ? v.getRefurbishedCost() : null)
                             .rejectionReason(ins.getRejectionReason())
                             .vehicleImage(imgUrl)
                             .year(v != null ? (v.getRegistrationYear() != null ? v.getRegistrationYear() : v.getManufacturingYear()) : 2021)

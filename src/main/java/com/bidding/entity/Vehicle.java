@@ -93,6 +93,9 @@ public class Vehicle {
     @Column(name = "suggested_price")
     private Double suggestedPrice;
 
+    @Column(name = "refurbished_cost", precision = 15, scale = 2)
+    private java.math.BigDecimal refurbishedCost;
+
     @Column(name = "current_highest_bid")
     private Double currentHighestBid;
 

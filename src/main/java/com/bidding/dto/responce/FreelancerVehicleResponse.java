@@ -4,6 +4,7 @@ import com.bidding.enums.InspectionStatus;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,6 +33,7 @@ public class FreelancerVehicleResponse {
     private String ownerName;
     private String insuranceStatus;
     private Double suggestedPrice;
+    private BigDecimal refurbishedCost;
     private String location;
     private String underHypothecation;
     private String accidental;

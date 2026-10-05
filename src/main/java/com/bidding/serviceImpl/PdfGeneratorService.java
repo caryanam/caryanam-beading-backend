@@ -491,6 +491,7 @@ public class PdfGeneratorService {
                     .insuranceStatus(v.getInsuranceStatus())
                     .inspectorCode(v.getInspectorCode())
                     .suggestedPrice(v.getSuggestedPrice())
+                    .refurbishedCost(v.getRefurbishedCost())
                     .build();
         }
 

@@ -5,6 +5,7 @@ import com.bidding.enums.PanelCondition;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -63,7 +64,8 @@ public class InspectionDetailsResponse {
         private String inspectorCode;
         private LocalDateTime inspectionDate;
         private String vehicleStatus;
-                private Double suggestedPrice;
+        private Double suggestedPrice;
+        private BigDecimal refurbishedCost;
         private String location;
         private String rtoInformation;
         private String rsAvailability;

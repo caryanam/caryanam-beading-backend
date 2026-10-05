@@ -3,6 +3,7 @@ package com.bidding.dto.responce;
 import com.bidding.enums.InspectionStatus;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -25,6 +26,7 @@ public class InspectionSummaryResponse {
     private String inspectorName;
     private String freelancerName;
     private Double suggestedPrice;
+    private BigDecimal refurbishedCost;
     private String rejectionReason;
     private String vehicleImage;
     private Integer year;
